@@ -31,6 +31,36 @@ router.get('/concesion/autorizacion/:id', async (req, res) => {
     }
 });
 
+router.get('/concesion/titular', async (req, res) => {
+    try {
+        const { nombre, paterno, materno, page = 1, pageSize = 15 } = req.query;
+        if (!nombre && !paterno && !materno) {
+            return res.status(400).json({ error: 'Se requiere al menos nombre, paterno o materno' });
+        }
+        const result = await dbService.obtenerConcesionariosPorNombre(nombre, paterno, materno, parseInt(page), parseInt(pageSize));
+        if (!result.data || result.data.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron concesionarios', returnValue: result.returnValue });
+        }
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al buscar concesionarios por titular' });
+    }
+});
+
+router.get('/concesion/concesionario/:idConcesionario', async (req, res) => {
+    try {
+        const result = await dbService.obtenerConcesionesPorConcesionario(req.params.idConcesionario);
+        if (!result.data || result.data.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron concesiones para este concesionario', returnValue: result.returnValue });
+        }
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener concesiones por concesionario' });
+    }
+});
+
 router.get('/concesion/:id', async (req, res) => {
     try {
         const result = await dbService.obtenerInformacionCompletaPorConcesion(req.params.id);

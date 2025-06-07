@@ -73,6 +73,68 @@ async function obtenerConcesionPorFolioPlaca(seriePlaca, folio) {
         throw new Error(`Error al ejecutar ConcesionObtenerPorFolioPlaca: ${err.message}`);
     }
 }
+async function obtenerConcesionariosPorNombre(nombre, paterno, materno, page, pageSize) {
+    try {
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('nombre', sql.VarChar, nombre || null);
+        request.input('paterno', sql.VarChar, paterno || null);
+        request.input('materno', sql.VarChar, materno || null);
+        request.input('RFC', sql.VarChar, null);
+
+        // Obtener todos los resultados del procedimiento
+        const result = await request.execute('ConcesionarioObtenerPorNombreRfc');
+        const totalRecords = result.recordset.length;
+
+        // Obtener resultados paginados
+        const offset = (page - 1) * pageSize;
+        const data = result.recordset
+            .sort((a, b) => a.IdConcesionario - b.IdConcesionario)
+            .slice(offset, offset + pageSize)
+            .map(item => ({
+                idConcesionario: item.IdConcesionario,
+                tipoPersona: item.TipoPersona === 0 ? 'Física' : item.TipoPersona === 1 ? 'Moral' : item.TipoPersona,
+                nombreCompleto: item.NombreConcesionario,
+                RFC: item.RFC
+            }));
+
+        // Calcular el número total de páginas
+        const totalPages = Math.ceil(totalRecords / pageSize);
+
+        return {
+            data: data,
+            totalRecords: totalRecords,
+            totalPages: totalPages,
+            returnValue: result.returnValue,
+            page: page,
+            pageSize: pageSize
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar ConcesionarioObtenerPorNombreRfc: ${err.message}`);
+    }
+}
+
+async function obtenerConcesionesPorConcesionario(idConcesionario) {
+    try {
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('idConcesionario', sql.Int, idConcesionario);
+        const result = await request.execute('ConcesionObtenerPorConcesionario');
+        const data = result.recordset.map(item => ({
+            idConcesion: item.IdConcesion,
+            // documento: 'Concesión',
+            folio: item.Folio,
+            seriePlaca: item.SeriePlacaActual || 'SIN PLACA',
+            numeroExpediente: item.NumeroExpediente
+        }));
+        return {
+            data: data,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar ConcesionObtenerPorConcesionario: ${err.message}`);
+    }
+}
 
 async function obtenerConcesionarioPorId(idConcesionario) {
     try {
@@ -84,6 +146,7 @@ async function obtenerConcesionarioPorId(idConcesionario) {
         if (data) {
             data.Genero = mapCatalogValue(data.IdGenero, generoMap);
             data.Nacionalidad = mapCatalogValue(data.IdNacionalidad, nacionalidadMap);
+            data.TipoPersona = data.TipoPersona === 0 ? 'Física' : data.TipoPersona === 1 ? 'Moral' : data.TipoPersona;
         }
         return {
             data: data,
@@ -241,6 +304,8 @@ module.exports = {
     obtenerConcesionPorId,
     obtenerConcesionPorFolioPlaca,
     obtenerConcesionarioPorId,
+    obtenerConcesionariosPorNombre,
+    obtenerConcesionesPorConcesionario,
     obtenerBeneficiariosPorConcesionario,
     obtenerDireccionesPorConcesionario,
     obtenerReferenciasPorConcesionario,
