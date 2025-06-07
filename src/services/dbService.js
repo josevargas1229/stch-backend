@@ -2,6 +2,32 @@ const poolPromise = require('../config/db');
 const poolVehiclePromise = require('../config/dbVehicle');
 const sql = require('mssql');
 
+let generoMap = new Map();
+let nacionalidadMap = new Map();
+
+// Función para inicializar los catálogos
+async function initializeCatalogs() {
+    try {
+        const pool = await poolPromise;
+        const generoResult = await pool.request().query('SELECT [IdGenero], [Genero] FROM [Catalogo].[Genero]');
+        generoMap = new Map(generoResult.recordset.map(item => [item.IdGenero, item.Genero]));
+
+        const nacionalidadResult = await pool.request().query('SELECT [IdNacionalidad], [Nacionalidad] FROM [Catalogo].[Nacionalidad]');
+        nacionalidadMap = new Map(nacionalidadResult.recordset.map(item => [item.IdNacionalidad, item.Nacionalidad]));
+    } catch (err) {
+        console.error('Error al inicializar los catálogos:', err.message);
+        throw err;
+    }
+}
+
+// Llamar a initializeCatalogs al cargar el módulo
+initializeCatalogs().catch(err => console.error('Fallo al inicializar catálogos:', err));
+
+// Función para mapear un ID a su valor descriptivo
+function mapCatalogValue(id, catalogMap) {
+    return catalogMap.get(parseInt(id)) || id; // Devuelve el valor descriptivo o el ID si no se encuentra
+}
+
 async function obtenerConcesionPorId(idConcesion) {
     try {
         const pool = await poolPromise;
@@ -17,14 +43,50 @@ async function obtenerConcesionPorId(idConcesion) {
     }
 }
 
+async function obtenerConcesionPorFolioPlaca(seriePlaca, folio) {
+    try {
+        const pool = await poolPromise;
+        const request = pool.request();
+        if (seriePlaca) {
+            request.input('seriePlaca', sql.NVarChar, seriePlaca);
+        } else {
+            request.input('seriePlaca', sql.NVarChar, null);
+        }
+        if (folio) {
+            request.input('folio', sql.NVarChar, folio);
+        } else {
+            request.input('folio', sql.NVarChar, null);
+        }
+        const result = await request.execute('ConcesionObtenerPorFolioPlaca');
+        // Filtrar solo los campos básicos para la tabla
+        const filteredData = result.recordset.map(item => ({
+            idConcesion: item.IdConcesion,
+            folio: item.Folio,
+            seriePlaca: item.SeriePlacaActual,
+            numeroExpediente: item.NumeroExpediente
+        }));
+        return {
+            data: filteredData.length > 0 ? filteredData : null,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar ConcesionObtenerPorFolioPlaca: ${err.message}`);
+    }
+}
+
 async function obtenerConcesionarioPorId(idConcesionario) {
     try {
         const pool = await poolPromise;
         const request = pool.request();
         request.input('idConcesionario', sql.Int, idConcesionario);
         const result = await request.execute('ConcesionarioObtenerPorId');
+        let data = result.recordset[0] || null;
+        if (data) {
+            data.Genero = mapCatalogValue(data.IdGenero, generoMap);
+            data.Nacionalidad = mapCatalogValue(data.IdNacionalidad, nacionalidadMap);
+        }
         return {
-            data: result.recordset[0] || null,
+            data: data,
             returnValue: result.returnValue
         };
     } catch (err) {
@@ -177,6 +239,7 @@ async function obtenerInformacionCompletaPorConcesion(idConcesion) {
 module.exports = {
     obtenerInformacionCompletaPorConcesion,
     obtenerConcesionPorId,
+    obtenerConcesionPorFolioPlaca,
     obtenerConcesionarioPorId,
     obtenerBeneficiariosPorConcesionario,
     obtenerDireccionesPorConcesionario,

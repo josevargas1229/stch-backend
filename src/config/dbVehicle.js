@@ -26,7 +26,7 @@ if (!process.env.DB_USER || !process.env.DB_PASSWORD) {
 const poolPromise = new sql.ConnectionPool(dbConfig)
     .connect()
     .then(pool => {
-        console.log(`Conectado a la base de datos ${process.env.DB_VEHICLE_NAME}`);
+        console.log(`Conectado a la base de datos de vehiculos`);
         return pool;
     })
     .catch(err => {

@@ -2,6 +2,23 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/dbService');
 
+router.get('/concesion/expediente', async (req, res) => {
+    try {
+        const { seriePlaca, folio } = req.query;
+        if (!seriePlaca && !folio) {
+            return res.status(400).json({ error: 'Se requiere al menos seriePlaca o folio' });
+        }
+        const result = await dbService.obtenerConcesionPorFolioPlaca(seriePlaca, folio);
+        if (!result.data) {
+            return res.status(404).json({ message: 'No se encontraron concesiones', returnValue: result.returnValue });
+        }
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al buscar concesiones' });
+    }
+});
+
 router.get('/concesion/:id', async (req, res) => {
     try {
         const result = await dbService.obtenerInformacionCompletaPorConcesion(req.params.id);
@@ -14,15 +31,8 @@ router.get('/concesion/:id', async (req, res) => {
         res.status(500).json({ error: 'Error al obtener la información de la concesión' });
     }
 });
-
-// Placeholder para otras búsquedas (por expediente, titular, etc.)
-router.get('/concesion/expediente/:expediente', async (req, res) => {
-    // Implementar cuando tengas el procedimiento almacenado
-    res.status(501).json({ message: 'Búsqueda por expediente no implementada' });
-});
-
+// Placeholder para búsqueda por titular
 router.get('/concesion/titular', async (req, res) => {
-    // Implementar cuando tengas el procedimiento almacenado
     res.status(501).json({ message: 'Búsqueda por titular no implementada' });
 });
 
