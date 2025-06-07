@@ -1,11 +1,13 @@
 const express = require('express');
+const apiRoutes = require('./routes/api');
 require('dotenv').config();
-const poolPromise = require('../config/db');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
+app.use('/api', apiRoutes);
 
 // Ruta raíz
 app.get('/', (req, res) => {
