@@ -4,6 +4,7 @@ const sql = require('mssql');
 
 let generoMap = new Map();
 let nacionalidadMap = new Map();
+let estatusMap = new Map();
 
 // Función para inicializar los catálogos
 async function initializeCatalogs() {
@@ -14,6 +15,10 @@ async function initializeCatalogs() {
 
         const nacionalidadResult = await pool.request().query('SELECT [IdNacionalidad], [Nacionalidad] FROM [Catalogo].[Nacionalidad]');
         nacionalidadMap = new Map(nacionalidadResult.recordset.map(item => [item.IdNacionalidad, item.Nacionalidad]));
+
+        const poolVehicle = await poolVehiclePromise;
+        const estatusResult = await poolVehicle.request().query('SELECT [IdEstatus], [Estatus] FROM [Vehiculo].[Estatus]');
+        estatusMap = new Map(estatusResult.recordset.map(item => [item.IdEstatus, item.Estatus]));
     } catch (err) {
         console.error('Error al inicializar los catálogos:', err.message);
         throw err;
@@ -133,6 +138,37 @@ async function obtenerConcesionesPorConcesionario(idConcesionario) {
         };
     } catch (err) {
         throw new Error(`Error al ejecutar ConcesionObtenerPorConcesionario: ${err.message}`);
+    }
+}
+
+async function obtenerVehiculosPorPlacaNumSerie(placa, numSerie, numMotor) {
+    try {
+        const pool = await poolVehiclePromise;
+        const request = pool.request();
+        request.input('placa', sql.VarChar, placa || null);
+        request.input('numSerie', sql.VarChar, numSerie || null);
+        request.input('numMotor', sql.VarChar, numMotor || null);
+
+        const result = await request.execute('VehiculoObtenerPorPlacaNumSerie');
+        const data = result.recordset.map(item => ({
+            IdVehiculo: item.IdVehiculo,
+            IdConcesion: item.IdConcesion,
+            PlacaAsignada: item.PlacaAsignada,
+            SerieNIV: item.SerieNIV,
+            Motor: item.Motor,
+            Estatus: mapCatalogValue(item.IdEstatus, estatusMap),
+            Marca: item.Marca,
+            SubMarca: item.SubMarca,
+            TipoVehiculo: item.TipoVehiculo,
+            PlacaAnterior: item.PlacaAnterior,
+            ClaseVehiculo: item.ClaseVehiculo
+        }));
+        return {
+            data: data,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar VehiculoObtenerPorPlacaNumSerie: ${err.message}`);
     }
 }
 
@@ -306,6 +342,7 @@ module.exports = {
     obtenerConcesionarioPorId,
     obtenerConcesionariosPorNombre,
     obtenerConcesionesPorConcesionario,
+    obtenerVehiculosPorPlacaNumSerie,
     obtenerBeneficiariosPorConcesionario,
     obtenerDireccionesPorConcesionario,
     obtenerReferenciasPorConcesionario,

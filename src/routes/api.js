@@ -78,4 +78,21 @@ router.get('/concesion/titular', async (req, res) => {
     res.status(501).json({ message: 'Búsqueda por titular no implementada' });
 });
 
+router.get('/vehiculo/buscar', async (req, res) => {
+    try {
+        const { placa, numSerie, numMotor } = req.query;
+        if (!placa && !numSerie && !numMotor) {
+            return res.status(400).json({ error: 'Se requiere al menos placa, numSerie o numMotor' });
+        }
+        const result = await dbService.obtenerVehiculosPorPlacaNumSerie(placa, numSerie, numMotor);
+        if (!result.data || result.data.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron vehículos', returnValue: result.returnValue });
+        }
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al buscar vehículos' });
+    }
+});
+
 module.exports = router;
