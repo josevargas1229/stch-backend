@@ -1,12 +1,22 @@
+/**
+ * Módulo de servicios para interactuar con las bases de datos de concesiones y vehículos.
+ * @module dbService
+ */
 const poolPromise = require('../config/db');
 const poolVehiclePromise = require('../config/dbVehicle');
 const sql = require('mssql');
 
+// Catálogos en memoria
 let generoMap = new Map();
 let nacionalidadMap = new Map();
 let estatusMap = new Map();
 
-// Función para inicializar los catálogos
+/**
+ * Inicializa los catálogos en memoria (género, nacionalidad, estatus del vehículo) al cargar el módulo.
+ * @async
+ * @function initializeCatalogs
+ * @throws {Error} Si falla la consulta a la base de datos.
+ */
 async function initializeCatalogs() {
     try {
         const pool = await poolPromise;
@@ -28,11 +38,25 @@ async function initializeCatalogs() {
 // Llamar a initializeCatalogs al cargar el módulo
 initializeCatalogs().catch(err => console.error('Fallo al inicializar catálogos:', err));
 
-// Función para mapear un ID a su valor descriptivo
+/**
+ * Mapea un ID a su valor descriptivo en un catálogo dado.
+ * @function mapCatalogValue
+ * @param {number|string} id - El ID a mapear.
+ * @param {Map} catalogMap - El mapa de catálogo (generoMap, nacionalidadMap o estatusMap).
+ * @returns {string} El valor descriptivo o el ID original si no se encuentra.
+ */
 function mapCatalogValue(id, catalogMap) {
     return catalogMap.get(parseInt(id)) || id; // Devuelve el valor descriptivo o el ID si no se encuentra
 }
 
+/**
+ * Obtiene los detalles de una concesión por su ID.
+ * @async
+ * @function obtenerConcesionPorId
+ * @param {number} idConcesion - El ID de la concesión.
+ * @returns {Promise<Object>} Objeto con `data` (detalles de la concesión) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerConcesionPorId(idConcesion) {
     try {
         const pool = await poolPromise;
@@ -48,6 +72,15 @@ async function obtenerConcesionPorId(idConcesion) {
     }
 }
 
+/**
+ * Busca concesiones por folio y/o la serie de la placa.
+ * @async
+ * @function obtenerConcesionPorFolioPlaca
+ * @param {string} seriePlaca - La serie de la placa del vehículo.
+ * @param {string} folio - El folio de la concesión.
+ * @returns {Promise<Object>} Objeto con `data` (lista de concesiones) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerConcesionPorFolioPlaca(seriePlaca, folio) {
     try {
         const pool = await poolPromise;
@@ -78,6 +111,19 @@ async function obtenerConcesionPorFolioPlaca(seriePlaca, folio) {
         throw new Error(`Error al ejecutar ConcesionObtenerPorFolioPlaca: ${err.message}`);
     }
 }
+
+/**
+ * Busca concesionarios por nombre con paginación.
+ * @async
+ * @function obtenerConcesionariosPorNombre
+ * @param {string} nombre - Nombre del concesionario.
+ * @param {string} paterno - Apellido paterno.
+ * @param {string} materno - Apellido materno.
+ * @param {number} page - Número de página (por defecto 1).
+ * @param {number} pageSize - Tamaño de página (por defecto 15).
+ * @returns {Promise<Object>} Objeto con `data` (lista de concesionarios), `totalRecords`, `totalPages`, `returnValue`, `page`, y `pageSize`.
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerConcesionariosPorNombre(nombre, paterno, materno, page, pageSize) {
     try {
         const pool = await poolPromise;
@@ -119,6 +165,14 @@ async function obtenerConcesionariosPorNombre(nombre, paterno, materno, page, pa
     }
 }
 
+/**
+ * Obtiene las concesiones asociadas a un concesionario.
+ * @async
+ * @function obtenerConcesionesPorConcesionario
+ * @param {number} idConcesionario - El ID del concesionario.
+ * @returns {Promise<Object>} Objeto con `data` (lista de concesiones) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerConcesionesPorConcesionario(idConcesionario) {
     try {
         const pool = await poolPromise;
@@ -141,6 +195,16 @@ async function obtenerConcesionesPorConcesionario(idConcesionario) {
     }
 }
 
+/**
+ * Busca vehículos por placa, número de serie o número de motor.
+ * @async
+ * @function obtenerVehiculosPorPlacaNumSerie
+ * @param {string} placa - La placa del vehículo.
+ * @param {string} numSerie - El número de serie del vehículo.
+ * @param {string} numMotor - El número de motor del vehículo.
+ * @returns {Promise<Object>} Objeto con `data` (lista de vehículos) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerVehiculosPorPlacaNumSerie(placa, numSerie, numMotor) {
     try {
         const pool = await poolVehiclePromise;
@@ -172,6 +236,14 @@ async function obtenerVehiculosPorPlacaNumSerie(placa, numSerie, numMotor) {
     }
 }
 
+/**
+ * Obtiene los detalles de un concesionario por su ID.
+ * @async
+ * @function obtenerConcesionarioPorId
+ * @param {number} idConcesionario - El ID del concesionario.
+ * @returns {Promise<Object>} Objeto con `data` (detalles del concesionario) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerConcesionarioPorId(idConcesionario) {
     try {
         const pool = await poolPromise;
@@ -193,6 +265,14 @@ async function obtenerConcesionarioPorId(idConcesionario) {
     }
 }
 
+/**
+ * Obtiene los beneficiarios asociados a un concesionario.
+ * @async
+ * @function obtenerBeneficiariosPorConcesionario
+ * @param {number} idConcesionario - El ID del concesionario.
+ * @returns {Promise<Object>} Objeto con `data` (lista de beneficiarios) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerBeneficiariosPorConcesionario(idConcesionario) {
     try {
         const pool = await poolPromise;
@@ -208,6 +288,14 @@ async function obtenerBeneficiariosPorConcesionario(idConcesionario) {
     }
 }
 
+/**
+ * Obtiene las direcciones asociadas a un concesionario.
+ * @async
+ * @function obtenerDireccionesPorConcesionario
+ * @param {number} idConcesionario - El ID del concesionario.
+ * @returns {Promise<Object>} Objeto con `data` (lista de direcciones) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerDireccionesPorConcesionario(idConcesionario) {
     try {
         const pool = await poolPromise;
@@ -223,6 +311,14 @@ async function obtenerDireccionesPorConcesionario(idConcesionario) {
     }
 }
 
+/**
+ * Obtiene las referencias asociadas a un concesionario.
+ * @async
+ * @function obtenerReferenciasPorConcesionario
+ * @param {number} idConcesionario - El ID del concesionario.
+ * @returns {Promise<Object>} Objeto con `data` (lista de referencias) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerReferenciasPorConcesionario(idConcesionario) {
     try {
         const pool = await poolPromise;
@@ -238,6 +334,14 @@ async function obtenerReferenciasPorConcesionario(idConcesionario) {
     }
 }
 
+/**
+ * Obtiene los datos del seguro para una concesión.
+ * @async
+ * @function obtenerSeguroPorConcesion
+ * @param {number} idConcesion - El ID de la concesión.
+ * @returns {Promise<Object>} Objeto con `data` (detalles del seguro) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerSeguroPorConcesion(idConcesion) {
     try {
         const pool = await poolPromise;
@@ -253,6 +357,14 @@ async function obtenerSeguroPorConcesion(idConcesion) {
     }
 }
 
+/**
+ * Obtiene los detalles de un vehículo por su ID.
+ * @async
+ * @function obtenerVehiculoPorId
+ * @param {number} idVehiculo - El ID del vehículo.
+ * @returns {Promise<Object>} Objeto con `data` (detalles del vehículo) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
 async function obtenerVehiculoPorId(idVehiculo) {
     try {
         const pool = await poolVehiclePromise;
@@ -268,6 +380,14 @@ async function obtenerVehiculoPorId(idVehiculo) {
     }
 }
 
+/**
+ * Obtiene la información completa de una concesión, incluyendo datos relacionados.
+ * @async
+ * @function obtenerInformacionCompletaPorConcesion
+ * @param {number} idConcesion - El ID de la concesión.
+ * @returns {Promise<Object>} Objeto con detalles de la concesión, concesionario (información personal, beneficiarios, direcciones, referencias), seguro y vehículo.
+ * @throws {Error} Si falla la ejecución de alguna consulta.
+ */
 async function obtenerInformacionCompletaPorConcesion(idConcesion) {
     try {
         // Obtener datos de la concesión

@@ -1,7 +1,20 @@
+/**
+ * Módulo de rutas de la API para gestionar concesiones y vehículos.
+ * @module apiRoutes
+ */
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/dbService');
 
+/**
+ * Ruta para buscar concesiones por expediente (folio y/o serie de la placa).
+ * @name GET /concesion/expediente
+ * @function
+ * @param {Object} req.query - Objeto con parámetros de consulta.
+ * @param {string} req.query.seriePlaca - Serie de la placa del vehículo.
+ * @param {string} req.query.folio - Folio de la concesión.
+ * @returns {Object} Respuesta JSON con `data` (concesiones) y `returnValue`, o error 400/404/500.
+ */
 router.get('/concesion/expediente', async (req, res) => {
     try {
         const { seriePlaca, folio } = req.query;
@@ -18,6 +31,14 @@ router.get('/concesion/expediente', async (req, res) => {
     }
 });
 
+/**
+ * Ruta para obtener la información de una concesión por el número de autorización (Id)
+ * @name GET /concesion/autorizacion/:id
+ * @function
+ * @param {Object} req.params - Objeto con parámetros de ruta.
+ * @param {string} req.params.id - ID de la concesión.
+ * @returns {Object} Respuesta JSON con detalles de la concesión, o error 404/500.
+ */
 router.get('/concesion/autorizacion/:id', async (req, res) => {
     try {
         const result = await dbService.obtenerConcesionPorId(req.params.id);
@@ -31,6 +52,18 @@ router.get('/concesion/autorizacion/:id', async (req, res) => {
     }
 });
 
+/**
+ * Ruta para buscar concesionarios por nombre con paginación.
+ * @name GET /concesion/titular
+ * @function
+ * @param {Object} req.query - Objeto con parámetros de consulta.
+ * @param {string} req.query.nombre - Nombre del concesionario.
+ * @param {string} req.query.paterno - Apellido paterno.
+ * @param {string} req.query.materno - Apellido materno.
+ * @param {number} [req.query.page=1] - Número de página.
+ * @param {number} [req.query.pageSize=15] - Tamaño de página.
+ * @returns {Object} Respuesta JSON con `data` (concesionarios), `totalRecords`, `totalPages`, etc., o error 400/404/500.
+ */
 router.get('/concesion/titular', async (req, res) => {
     try {
         const { nombre, paterno, materno, page = 1, pageSize = 15 } = req.query;
@@ -48,6 +81,14 @@ router.get('/concesion/titular', async (req, res) => {
     }
 });
 
+/**
+ * Ruta para obtener concesiones asociadas a un concesionario.
+ * @name GET /concesion/concesionario/:idConcesionario
+ * @function
+ * @param {Object} req.params - Objeto con parámetros de ruta.
+ * @param {number} req.params.idConcesionario - ID del concesionario.
+ * @returns {Object} Respuesta JSON con `data` (concesiones) y `returnValue`, o error 404/500.
+ */
 router.get('/concesion/concesionario/:idConcesionario', async (req, res) => {
     try {
         const result = await dbService.obtenerConcesionesPorConcesionario(req.params.idConcesionario);
@@ -61,6 +102,14 @@ router.get('/concesion/concesionario/:idConcesionario', async (req, res) => {
     }
 });
 
+/**
+ * Ruta para obtener la información completa de una concesión por su ID.
+ * @name GET /concesion/:id
+ * @function
+ * @param {Object} req.params - Objeto con parámetros de ruta.
+ * @param {string} req.params.id - ID de la concesión.
+ * @returns {Object} Respuesta JSON con detalles de la concesión y relacionados, o error 404/500.
+ */
 router.get('/concesion/:id', async (req, res) => {
     try {
         const result = await dbService.obtenerInformacionCompletaPorConcesion(req.params.id);
@@ -73,10 +122,17 @@ router.get('/concesion/:id', async (req, res) => {
         res.status(500).json({ error: 'Error al obtener la información de la concesión' });
     }
 });
-// Placeholder para búsqueda por titular
-router.get('/concesion/titular', async (req, res) => {
-    res.status(501).json({ message: 'Búsqueda por titular no implementada' });
-});
+
+/**
+ * Ruta para buscar vehículos por placa, número de serie o número de motor.
+ * @name GET /vehiculo/buscar
+ * @function
+ * @param {Object} req.query - Objeto con parámetros de consulta.
+ * @param {string} req.query.placa - Placa del vehículo.
+ * @param {string} req.query.numSerie - Número de serie del vehículo.
+ * @param {string} req.query.numMotor - Número de motor del vehículo.
+ * @returns {Object} Respuesta JSON con `data` (vehículos) y `returnValue`, o error 400/404/500.
+ */
 
 router.get('/vehiculo/buscar', async (req, res) => {
     try {
