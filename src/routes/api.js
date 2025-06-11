@@ -5,6 +5,51 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/dbService');
+const loginService = require('../services/loginService');
+const { logRequest, authenticateApiKeyOrSession } = require('../middlewares/middlewares');
+
+router.use(logRequest);
+/**
+ * Ruta para autenticar un usuario y establecer una sesión.
+ * @name POST /auth/login
+ * @function
+ * @param {Object} req.body - Cuerpo de la solicitud.
+ * @param {string} req.body.username - Nombre de usuario.
+ * @param {string} req.body.password - Contraseña del usuario.
+ * @returns {Object} Respuesta JSON con `user`, `apiKey` y `returnValue`.
+ */
+router.post('/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Se requieren username y password' });
+        }
+
+        const result = await loginService.loginUser(username, password);
+        
+        // Establecer sesión
+        req.session.userId = result.user.id;
+        
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(401).json({ 
+            error: err.message.includes('Usuario no encontrado') || err.message.includes('Contraseña incorrecta') 
+                ? err.message 
+                : 'Error al autenticar usuario' 
+        });
+    }
+});
+
+/**
+ * Aplicar autenticación a todas las rutas excepto /auth/login.
+ */
+router.use((req, res, next) => {
+    if (req.path === '/auth/login' && req.method === 'POST') {
+        return next();
+    }
+    return authenticateApiKeyOrSession(req, res, next);
+});
 
 /**
  * Ruta para buscar concesiones por expediente (folio y/o serie de la placa).
