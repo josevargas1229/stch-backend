@@ -237,6 +237,85 @@ async function obtenerVehiculosPorPlacaNumSerie(placa, numSerie, numMotor) {
 }
 
 /**
+ * Obtiene el reporte de inspecciones realizadas entre dos fechas, con paginación.
+ * @async
+ * @function obtenerReporteInspecciones
+ * @param {string} fechaInicio - Fecha de inicio del rango (formato: MM/DD/YYYY).
+ * @param {string} fechaFin - Fecha de fin del rango (formato: MM/DD/YYYY).
+ * @param {number} page - Número de página (entero positivo).
+ * @param {number} pageSize - Tamaño de página (número de registros por página).
+ * @returns {Promise<Object>} Objeto con `data` (lista de inspecciones paginada), `totalRecords`, `totalPages`, y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
+async function obtenerReporteInspecciones(fechaInicio, fechaFin, page, pageSize) {
+    try {
+        // Convertir fechas de MM/DD/YYYY a objeto Date
+        const parseDate = (dateStr) => {
+            const [month, day, year] = dateStr.split('/').map(Number);
+            return new Date(year, month - 1, day);
+        };
+        const startDate = parseDate(fechaInicio);
+        const endDate = parseDate(fechaFin);
+        endDate.setHours(23, 59, 59, 999); // Incluir todo el día
+
+        if (isNaN(startDate) || isNaN(endDate)) {
+            throw new Error('Formato de fecha inválido');
+        }
+
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('fechaInspeccionInicio', sql.DateTime, startDate);
+        request.input('fechaInspeccionFin', sql.DateTime, endDate);
+        const result = await request.execute('RV_ReporteRealizadasUsuario');
+
+        // Función para formatear la fecha al formato DD/MM/YYYY HH:mm
+        const formatDate = (date) => {
+            const d = new Date(date);
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const year = d.getFullYear();
+            const hours = String(d.getUTCHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            return `${day}/${month}/${year} ${hours}:${minutes}`;
+        };
+
+        // Mapear y ordenar los resultados por FechaInspeccion
+        const sortedData = result.recordset
+            .map(item => ({
+                IdRevistaVehicular: item.IdRevistaVehicular,
+                FechaInspeccion: formatDate(item.FechaInspeccion),
+                IdConsesion: item.IdConsesion,
+                Tramite: item.Tramite,
+                Concesionario: item.Propietario,
+                Modalidad: item.Modalidad,
+                Municipio: item.Municipio,
+                Inspector: item.Inspector,
+                Observaciones: item.Observaciones,
+                _sortDate: new Date(item.FechaInspeccion)
+            }))
+            .sort((a, b) => a._sortDate - b._sortDate);
+
+        // Calcular paginación
+        const totalRecords = sortedData.length;
+        const totalPages = Math.ceil(totalRecords / pageSize);
+        const startIndex = (page - 1) * pageSize;
+        const paginatedData = sortedData
+            .slice(startIndex, startIndex + pageSize)
+            .map(({ _sortDate, ...item }) => item);
+
+        return {
+            data: paginatedData,
+            page,
+            totalRecords,
+            totalPages,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar RV_ReporteRealizadasUsuario: ${err.message}`);
+    }
+}
+
+/**
  * Obtiene los detalles de un concesionario por su ID.
  * @async
  * @function obtenerConcesionarioPorId
@@ -462,6 +541,7 @@ module.exports = {
     obtenerConcesionarioPorId,
     obtenerConcesionariosPorNombre,
     obtenerConcesionesPorConcesionario,
+    obtenerReporteInspecciones,
     obtenerVehiculosPorPlacaNumSerie,
     obtenerBeneficiariosPorConcesionario,
     obtenerDireccionesPorConcesionario,
