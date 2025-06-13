@@ -70,6 +70,7 @@ router.get('/concesion/expediente', async (req, res) => {
         if (!result.data) {
             return res.status(404).json({ message: 'No se encontraron concesiones', returnValue: result.returnValue });
         }
+        return res.status(200).json(result);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Error al buscar concesiones' });
