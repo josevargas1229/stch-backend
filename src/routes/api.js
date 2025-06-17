@@ -7,7 +7,9 @@ const router = express.Router();
 const dbService = require('../services/dbService');
 const loginService = require('../services/loginService');
 const { logRequest, authenticateApiKeyOrSession } = require('../middlewares/middlewares');
+const fileUpload = require('express-fileupload');
 
+router.use(fileUpload()); // Middleware para manejar subida de archivos
 router.use(logRequest);
 /**
  * Ruta para autenticar un usuario y establecer una sesión.
@@ -149,6 +151,35 @@ router.get('/concesion/concesionario/:idConcesionario', async (req, res) => {
 });
 
 /**
+ * Ruta para obtener los datos del vehículo y la aseguradora por ID de concesión e ID de vehículo
+ * @name GET /concesion/:idConcesion/vehiculo/:idVehiculo
+ * @function
+ * @param {Object} req.params - Parámetros de ruta.
+ * @param {string} req.params.idConcesion - ID de la concesión.
+ * @param {string} req.params.idVehiculo - ID del vehículo.
+ * @returns {Object} Respuesta JSON con datos del vehículo y aseguradora, o error 400/404/500.
+ */
+router.get('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
+    try {
+        const idConcesion = parseInt(req.params.idConcesion);
+        const idVehiculo = parseInt(req.params.idVehiculo);
+
+        if (isNaN(idConcesion) || isNaN(idVehiculo)) {
+            return res.status(400).json({ error: 'ID de concesión o vehículo inválido' });
+        }
+
+        const result = await dbService.obtenerVehiculoYAseguradora(idConcesion, idVehiculo);
+        if (result.message) {
+            return res.status(404).json(result);
+        }
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener vehículo y aseguradora' });
+    }
+});
+
+/**
  * Ruta para obtener la información completa de una concesión por su ID.
  * @name GET /concesion/:id
  * @function
@@ -249,6 +280,213 @@ router.get('/reporte/inspecciones', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Error al obtener el reporte de inspecciones' });
+    }
+});
+
+/**
+ * Ruta para obtener los tipos de trámite disponibles para la inspección vehicular.
+ * @name GET /revista/tipos-tramite
+ * @function
+ * @returns {Object} Respuesta JSON con `data` (tipos de trámite) y `returnValue`, o error 500.
+ */
+router.get('/revista/tipos-tramite', async (req, res) => {
+    try {
+        const result = await dbService.obtenerTiposTramite();
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener los tipos de trámite' });
+    }
+});
+
+/**
+ * Ruta para obtener los tipos de imagen disponibles para la inspección vehicular.
+ * @name GET /revista/tipos-imagen
+ * @function
+ * @returns {Object} Respuesta JSON con `data` (tipos de imagen) y `returnValue`, o error 500.
+ */
+router.get('/revista/tipos-imagen', async (req, res) => {
+    try {
+        const result = await dbService.obtenerTiposImagen();
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener los tipos de imagen' });
+    }
+});
+
+/**
+ * Ruta para guardar una inspección vehicular.
+ * @name POST /revista
+ * @function
+ * @param {Object} req.body - Cuerpo de la solicitud con los datos de la inspección.
+ * @returns {Object} Respuesta JSON con `idRV` (ID de la inspección) y `success`, o error 400/500.
+ */
+router.post('/revista', async (req, res) => {
+    try {
+        const {
+            idConcesion,
+            idPropietario,
+            idTramite,
+            idVehiculo,
+            placa,
+            propietario,
+            placaDelanteraVer,
+            placaTraseraVer,
+            calcaVerificacionVer,
+            calcaTenenciaVer,
+            pinturaCarroceriaVer,
+            estadoLlantasVer,
+            defensasVer,
+            vidriosVer,
+            limpiadoresVer,
+            espejosVer,
+            llantaRefaccionVer,
+            parabrisasMedallonVer,
+            claxonVer,
+            luzBajaVer,
+            luzAltaVer,
+            cuartosVer,
+            direccionalesVer,
+            intermitentesVer,
+            stopVer,
+            timbreVer,
+            estinguidorVer,
+            herramientasVer,
+            sistemaFrenadoVer,
+            sistemaDireccionVer,
+            sistemaSuspensionVer,
+            interioresVer,
+            botiquinVer,
+            cinturonSeguridadVer,
+            observaciones,
+            aprobado,
+            imagenCromaticaVer,
+            folio,
+            Inspector
+        } = req.body;
+
+        // Validar campos requeridos
+        if (!idConcesion || !idPropietario || !idTramite || !idVehiculo || !placa || !propietario) {
+            return res.status(400).json({ error: 'Faltan campos requeridos' });
+        }
+
+        // Obtener IdUser desde la sesión
+        const IdUser = req.session.userId || 0;
+
+        const result = await dbService.insertarRevista({
+            idConcesion,
+            idPropietario,
+            idTramite,
+            idVehiculo,
+            placa,
+            propietario,
+            placaDelanteraVer,
+            placaTraseraVer,
+            calcaVerificacionVer,
+            calcaTenenciaVer,
+            pinturaCarroceriaVer,
+            estadoLlantasVer,
+            defensasVer,
+            vidriosVer,
+            limpiadoresVer,
+            espejosVer,
+            llantaRefaccionVer,
+            parabrisasMedallonVer,
+            claxonVer,
+            luzBajaVer,
+            luzAltaVer,
+            cuartosVer,
+            direccionalesVer,
+            intermitentesVer,
+            stopVer,
+            timbreVer,
+            estinguidorVer,
+            herramientasVer,
+            sistemaFrenadoVer,
+            sistemaDireccionVer,
+            sistemaSuspensionVer,
+            interioresVer,
+            botiquinVer,
+            cinturonSeguridadVer,
+            observaciones,
+            aprobado,
+            imagenCromaticaVer,
+            folio,
+            IdUser,
+            Inspector
+        });
+
+        res.json({ success: true, idRV: result.idRV });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al guardar la inspección' });
+    }
+});
+
+/**
+ * Ruta para subir una imagen asociada a una inspección vehicular.
+ * @name POST /revista/imagen
+ * @function
+ * @param {Object} req.files - Objeto con el archivo subido (imagen).
+ * @param {Object} req.body - Cuerpo de la solicitud con `idRV` y `tipoImagen`.
+ * @returns {Object} Respuesta JSON con `success` y mensaje, o error 400/500.
+ */
+router.post('/revista/imagen', async (req, res) => {
+    try {
+        if (!req.files || !req.files.imagen) {
+            return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
+        }
+
+        const { idRV, tipoImagen } = req.body;
+        const imagen = req.files.imagen;
+
+        // Validar tipo de imagen
+        if (!tipoImagen || !['1', '2', '3', '4', '5', '6'].includes(tipoImagen)) {
+            return res.status(400).json({ error: 'Tipo de imagen inválido' });
+        }
+
+        // Validar formato de imagen
+        if (!imagen.mimetype.includes('image/jpeg')) {
+            return res.status(400).json({ error: 'Solo se permiten imágenes JPG' });
+        }
+
+        // Validar idRV
+        if (!idRV) {
+            return res.status(400).json({ error: 'Se requiere el ID de la inspección (idRV)' });
+        }
+
+        const result = await dbService.guardarImagenRevista(idRV, tipoImagen, imagen);
+
+        res.json({ success: true, message: 'Imagen subida correctamente' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al subir la imagen' });
+    }
+});
+
+/**
+ * Ruta para obtener las imágenes asociadas a una inspección vehicular.
+ * @name GET /revista/:idRV/imagenes
+ * @function
+ * @param {Object} req.params - Objeto con parámetros de ruta.
+ * @param {string} req.params.idRV - ID de la inspección.
+ * @param {Object} req.query - Objeto con parámetros de consulta.
+ * @param {string} [req.query.tipoImagen] - Tipo de imagen (opcional, filtra por tipo).
+ * @returns {Object} Respuesta JSON con `data` (imágenes en base64 o rutas) y `returnValue`, o error 404/500.
+ */
+router.get('/revista/:idRV/imagenes', async (req, res) => {
+    try {
+        const { idRV } = req.params;
+        const { tipoImagen } = req.query; // Opcional: filtrar por tipo de imagen
+        const result = await dbService.obtenerImagenesRevista(idRV, tipoImagen);
+        if (!result.data || result.data.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron imágenes para esta inspección' });
+        }
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener las imágenes' });
     }
 });
 
