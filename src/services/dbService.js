@@ -5,7 +5,7 @@
 const poolPromise = require('../config/db');
 const poolVehiclePromise = require('../config/dbVehicle');
 const sql = require('mssql');
-
+const ExcelJS = require('exceljs');
 // Catálogos en memoria
 let generoMap = new Map();
 let nacionalidadMap = new Map();
@@ -237,17 +237,18 @@ async function obtenerVehiculosPorPlacaNumSerie(placa, numSerie, numMotor) {
 }
 
 /**
- * Obtiene el reporte de inspecciones realizadas entre dos fechas, con paginación.
+ * Obtiene el reporte de inspecciones realizadas entre dos fechas, con paginación opcional.
  * @async
  * @function obtenerReporteInspecciones
  * @param {string} fechaInicio - Fecha de inicio del rango (formato: MM/DD/YYYY).
  * @param {string} fechaFin - Fecha de fin del rango (formato: MM/DD/YYYY).
  * @param {number} page - Número de página (entero positivo).
  * @param {number} pageSize - Tamaño de página (número de registros por página).
- * @returns {Promise<Object>} Objeto con `data` (lista de inspecciones paginada), `totalRecords`, `totalPages`, y `returnValue` (código de retorno).
+ * @param {boolean} [allPages=false] - Si es true, devuelve todos los registros sin paginación.
+ * @returns {Promise<Object>} Objeto con `data` (lista de inspecciones), `totalRecords`, `totalPages`, y `returnValue`.
  * @throws {Error} Si falla la ejecución del procedimiento.
  */
-async function obtenerReporteInspecciones(fechaInicio, fechaFin, page, pageSize) {
+async function obtenerReporteInspecciones(fechaInicio, fechaFin, page, pageSize, allPages = false) {
     try {
         // Convertir fechas de MM/DD/YYYY a objeto Date
         const parseDate = (dateStr) => {
@@ -297,15 +298,16 @@ async function obtenerReporteInspecciones(fechaInicio, fechaFin, page, pageSize)
 
         // Calcular paginación
         const totalRecords = sortedData.length;
-        const totalPages = Math.ceil(totalRecords / pageSize);
-        const startIndex = (page - 1) * pageSize;
-        const paginatedData = sortedData
-            .slice(startIndex, startIndex + pageSize)
-            .map(({ _sortDate, ...item }) => item);
+        const totalPages = allPages ? 1 : Math.ceil(totalRecords / pageSize);
+        const data = allPages
+            ? sortedData.map(({ _sortDate, ...item }) => item) // Todos los registros
+            : sortedData
+                .slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
+                .map(({ _sortDate, ...item }) => item); // Paginado
 
         return {
-            data: paginatedData,
-            page,
+            data,
+            page: allPages ? 1 : page,
             totalRecords,
             totalPages,
             returnValue: result.returnValue
@@ -314,7 +316,229 @@ async function obtenerReporteInspecciones(fechaInicio, fechaFin, page, pageSize)
         throw new Error(`Error al ejecutar RV_ReporteRealizadasUsuario: ${err.message}`);
     }
 }
+/**
+ * Genera el reporte en el formato solicitado.
+ * @async
+ * @function generarReporte
+ * @param {Object} req - Objeto de solicitud.
+ * @param {Object} res - Objeto de respuesta.
+ * @param {File} [req.file] - Archivo del logo (opcional para POST).
+ * @returns {void}
+ */
+async function generarReporte(req, res) {
+    const { fechaInicio, fechaFin, page = '1', format = 'json', allPages = 'false' } =  req.query;
 
+    if (!fechaInicio || !fechaFin) {
+        return res.status(400).json({ error: 'Se requieren fechaInicio y fechaFin' });
+    }
+
+    const dateRegex = /^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+    if (!dateRegex.test(fechaInicio) || !dateRegex.test(fechaFin)) {
+        return res.status(400).json({ error: 'Las fechas deben estar en formato DD/MM/YYYY' });
+    }
+
+    const pageNumber = parseInt(page, 10);
+    if (isNaN(pageNumber) || pageNumber < 1) {
+        return res.status(400).json({ error: 'El parámetro page debe ser un entero positivo' });
+    }
+
+    if (!['json', 'excel', 'pdf'].includes(format)) {
+        return res.status(400).json({ error: 'Formato inválido. Use json, excel o pdf' });
+    }
+
+    const exportAllPages = allPages.toLowerCase() === 'true';
+
+    const convertDateFormat = (date) => {
+        const [day, month, year] = date.split('/');
+        return `${month}/${day}/${year}`;
+    };
+    const fechaInicioConverted = convertDateFormat(fechaInicio);
+    const fechaFinConverted = convertDateFormat(fechaFin);
+
+    const pageSize = 20;
+    const result = await obtenerReporteInspecciones(
+        fechaInicioConverted,
+        fechaFinConverted,
+        pageNumber,
+        pageSize,
+        exportAllPages && format !== 'json'
+    );
+
+    if (!result.data || result.data.length === 0) {
+        return res.status(404).json({
+            message: 'No se encontraron inspecciones',
+            totalRecords: 0,
+            totalPages: 0,
+            returnValue: result.returnValue
+        });
+    }
+const headers = [
+    'ID Revista', 'Fecha Inspección', 'ID Concesión', 'Trámite', 'Concesionario',
+    'Modalidad', 'Municipio', 'Inspector', 'Observaciones'
+];
+    // Exportar a Excel
+    if (format === 'excel') {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Reporte de Inspecciones');
+
+        // Agregar logo si está presente (solo para POST)
+        let logoBase64 = null;
+        if (req.file) {
+            logoBase64 = `data:image/${req.file.mimetype.split('/')[1]};base64,${req.file.buffer.toString('base64')}`;
+        }
+
+        if (logoBase64) {
+            const imageId = workbook.addImage({
+                base64: logoBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, ''),
+                extension: req.file.mimetype.split('/')[1]
+            });
+            worksheet.addImage(imageId, {
+                tl: { col: 0, row: 0 },
+                ext: { width: 100, height: 50 }
+            });
+        }
+
+        // Título
+        worksheet.addRow(['Reporte de Inspecciones Vehiculares']);
+        worksheet.getRow(logoBase64 ? 2 : 1).font = { bold: true, size: 14 };
+        worksheet.getRow(logoBase64 ? 2 : 1).alignment = { horizontal: 'center' };
+        worksheet.getRow(logoBase64 ? 2 : 1).height = 20;
+
+        // Rango de fechas
+        worksheet.addRow([`Rango de fechas: ${fechaInicio} - ${fechaFin}`]);
+        worksheet.getRow(logoBase64 ? 3 : 2).font = { italic: true };
+        worksheet.getRow(logoBase64 ? 3 : 2).alignment = { horizontal: 'center' };
+        worksheet.getRow(logoBase64 ? 3 : 2).height = 15;
+
+        // Espacio
+        worksheet.addRow([]);
+        worksheet.getRow(logoBase64 ? 4 : 3).height = 5;
+
+        // Encabezados manuales
+        const headerRow = worksheet.addRow(headers);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFCCCCCC' }
+        };
+        headerRow.alignment = { horizontal: 'center' };
+        headerRow.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'medium' },
+            right: { style: 'thin' }
+        };
+        worksheet.getRow(logoBase64 ? 5 : 4).height = 25;
+
+        // Definir columnas solo para claves y anchos
+        worksheet.columns = [
+            { key: 'IdRevistaVehicular', width: 15 },
+            { key: 'FechaInspeccion', width: 20 },
+            { key: 'IdConsesion', width: 15 },
+            { key: 'Tramite', width: 20 },
+            { key: 'Concesionario', width: 25 },
+            { key: 'Modalidad', width: 15 },
+            { key: 'Municipio', width: 20 },
+            { key: 'Inspector', width: 20 },
+            { key: 'Observaciones', width: 30 },
+        ];
+
+        // Agregar datos con formato
+        const dataRows = worksheet.addRows(result.data);
+        dataRows.forEach((row, index) => {
+            const excelRow = worksheet.getRow(logoBase64 ? index + 6 : index + 5);
+            excelRow.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+            excelRow.alignment = { horizontal: 'left' };
+        });
+
+        // Pie de página
+        worksheet.headerFooter.oddFooter = '&LGenerated on &D&RPage &P of &N';
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=Reporte_Inspecciones.xlsx');
+        await workbook.xlsx.write(res);
+        return res.end();
+    }
+
+    // Exportar a PDF
+    if (format === 'pdf') {
+        const { jsPDF } = require('jspdf');
+        const { autoTable } = require('jspdf-autotable');
+        const doc = new jsPDF({ orientation: 'landscape' });
+        const maxTextLength = 50;
+
+        // Agregar logo si está presente (solo para POST)
+        let logoBase64 = null;
+        if (req.file) {
+            logoBase64 = `data:image/${req.file.mimetype.split('/')[1]};base64,${req.file.buffer.toString('base64')}`;
+        }
+
+        if (logoBase64) {
+            const logoData = logoBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
+            doc.addImage(logoData, req.file.mimetype.split('/')[1].toUpperCase(), 10, 10, 30, 15);
+        }
+
+        // Título
+        doc.setFontSize(16);
+        doc.text('Reporte de Inspecciones Vehiculares', doc.internal.pageSize.width / 2, logoBase64 ? 30 : 20, { align: 'center' });
+
+        // Rango de fechas
+        doc.setFontSize(12);
+        doc.text(`Rango de fechas: ${fechaInicio} - ${fechaFin}`, doc.internal.pageSize.width / 2, logoBase64 ? 40 : 30, { align: 'center' });
+
+        // Preparar datos para la tabla
+        const tableData = result.data.map(item => [
+            item.IdRevistaVehicular,
+            item.FechaInspeccion,
+            item.IdConsesion,
+            item.Tramite,
+            item.Concesionario,
+            item.Modalidad,
+            item.Municipio,
+            item.Inspector,
+            (item.Observaciones || '').substring(0, maxTextLength) + ((item.Observaciones || '').length > maxTextLength ? '...' : '')
+        ]);
+
+        // Generar tabla
+        autoTable(doc, {
+            head: [headers],
+            body: tableData,
+            startY: logoBase64 ? 60 : 50,
+            margin: { left: 10, right: 10 },
+            styles: { fontSize: 10, cellPadding: 2 },
+            headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' },
+            columnStyles: {
+                0: { cellWidth: 20 },
+                1: { cellWidth: 25 },
+                2: { cellWidth: 20 },
+                3: { cellWidth: 20 },
+                4: { cellWidth: 50 },
+                5: { cellWidth: 30 },
+                6: { cellWidth: 30 },
+                7: { cellWidth: 30 },
+                8: { cellWidth: 55 }
+            },
+            didDrawPage: (data) => {
+                doc.setFontSize(10);
+                doc.text(`Generado el ${new Date().toLocaleDateString()} - Página ${doc.getNumberOfPages()}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+            }
+        });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=Reporte_Inspecciones.pdf');
+        res.send(Buffer.from(doc.output('arraybuffer')));
+        return;
+    }
+
+    // Respuesta JSON por defecto
+    res.json(result);
+}
 /**
  * Obtiene los detalles de un concesionario por su ID.
  * @async
@@ -775,5 +999,6 @@ module.exports = {
     guardarImagenRevista,
     obtenerImagenesRevista,
     obtenerTiposImagen,
-    obtenerVehiculoYAseguradora
+    obtenerVehiculoYAseguradora,
+    generarReporte
 };

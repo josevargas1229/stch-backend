@@ -8,8 +8,8 @@ const dbService = require('../services/dbService');
 const loginService = require('../services/loginService');
 const { logRequest, authenticateApiKeyOrSession } = require('../middlewares/middlewares');
 const fileUpload = require('express-fileupload');
-
-router.use(fileUpload()); // Middleware para manejar subida de archivos
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 router.use(logRequest);
 /**
  * Ruta para autenticar un usuario y establecer una sesión.
@@ -28,17 +28,17 @@ router.post('/auth/login', async (req, res) => {
         }
 
         const result = await loginService.loginUser(username, password);
-        
+
         // Establecer sesión
         req.session.userId = result.user.id;
-        
+
         res.json(result);
     } catch (err) {
         console.error(err);
-        res.status(401).json({ 
-            error: err.message.includes('Usuario no encontrado') || err.message.includes('Contraseña incorrecta') 
-                ? err.message 
-                : 'Error al autenticar usuario' 
+        res.status(401).json({
+            error: err.message.includes('Usuario no encontrado') || err.message.includes('Contraseña incorrecta')
+                ? err.message
+                : 'Error al autenticar usuario'
         });
     }
 });
@@ -229,58 +229,24 @@ router.get('/vehiculo/buscar', async (req, res) => {
 });
 
 /**
- * Ruta para obtener el reporte de inspecciones realizadas entre dos fechas, con paginación.
+ * Ruta para obtener el reporte de inspecciones realizadas entre dos fechas, con paginación y exportación.
  * @name GET /reporte/inspecciones
  * @function
  * @param {Object} req.query - Objeto con parámetros de consulta.
  * @param {string} req.query.fechaInicio - Fecha de inicio del rango (formato: DD/MM/YYYY).
  * @param {string} req.query.fechaFin - Fecha de fin del rango (formato: DD/MM/YYYY).
  * @param {string} [req.query.page=1] - Número de página (entero positivo, por defecto 1).
- * @returns {Object} Respuesta JSON con `data` (lista de inspecciones paginada), `page` (página actual), `totalRecords`, `totalPages`, y `returnValue`, o error 400/404/500.
+ * @param {string} [req.query.format=json] - Formato de salida (json, excel, pdf).
+ * @param {string} [req.query.allPages=false] - Si es true, exporta todos los registros sin paginación.
+ * @param {string} [req.query.logo] - Logo en formato base64 (opcional).
+ * @returns {Object} Respuesta JSON, archivo Excel o PDF según el formato solicitado.
  */
 router.get('/reporte/inspecciones', async (req, res) => {
-    try {
-        const { fechaInicio, fechaFin, page = '1' } = req.query;
+    await dbService.generarReporte(req, res);
+});
 
-        // Validar que se proporcionen ambas fechas
-        if (!fechaInicio || !fechaFin) {
-            return res.status(400).json({ error: 'Se requieren fechaInicio y fechaFin' });
-        }
-
-        // Validar formato de fecha DD/MM/YYYY
-        const dateRegex = /^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
-        if (!dateRegex.test(fechaInicio) || !dateRegex.test(fechaFin)) {
-            return res.status(400).json({ error: 'Las fechas deben estar en formato DD/MM/YYYY' });
-        }
-
-        // Validar que page sea un entero positivo
-        const pageNumber = parseInt(page, 10);
-        if (isNaN(pageNumber) || pageNumber < 1) {
-            return res.status(400).json({ error: 'El parámetro page debe ser un entero positivo' });
-        }
-
-        // Convertir fechas de DD/MM/YYYY a MM/DD/YYYY
-        const convertDateFormat = (date) => {
-            const [day, month, year] = date.split('/');
-            return `${month}/${day}/${year}`;
-        };
-        const fechaInicioConverted = convertDateFormat(fechaInicio);
-        const fechaFinConverted = convertDateFormat(fechaFin);
-
-        const result = await dbService.obtenerReporteInspecciones(fechaInicioConverted, fechaFinConverted, pageNumber, 20);
-        if (!result.data || result.data.length === 0) {
-            return res.status(404).json({ 
-                message: 'No se encontraron inspecciones', 
-                totalRecords: 0, 
-                totalPages: 0, 
-                returnValue: result.returnValue 
-            });
-        }
-        res.json(result);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error al obtener el reporte de inspecciones' });
-    }
+router.post('/reporte/inspecciones', upload.single('logo'), async (req, res) => {
+    await dbService.generarReporte(req, res);
 });
 
 /**
