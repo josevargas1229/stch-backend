@@ -10,6 +10,7 @@ const ExcelJS = require('exceljs');
 let generoMap = new Map();
 let nacionalidadMap = new Map();
 let estatusMap = new Map();
+let revistaEstatusMap = new Map();
 
 /**
  * Inicializa los catálogos en memoria (género, nacionalidad, estatus del vehículo) al cargar el módulo.
@@ -25,6 +26,9 @@ async function initializeCatalogs() {
 
         const nacionalidadResult = await pool.request().query('SELECT [IdNacionalidad], [Nacionalidad] FROM [Catalogo].[Nacionalidad]');
         nacionalidadMap = new Map(nacionalidadResult.recordset.map(item => [item.IdNacionalidad, item.Nacionalidad]));
+
+        const revistaEstatusResult = await pool.request().query('SELECT [IdEstatus], [Estatus] FROM [RevistaVehicular].[Estatus]');
+        revistaEstatusMap = new Map(revistaEstatusResult.recordset.map(item => [item.IdEstatus, item.Estatus]));
 
         const poolVehicle = await poolVehiclePromise;
         const estatusResult = await poolVehicle.request().query('SELECT [IdEstatus], [Estatus] FROM [Vehiculo].[Estatus]');
@@ -782,6 +786,7 @@ async function insertarRevista(data) {
         request.input('idPropietario', sql.Int, parseInt(data.idPropietario));
         request.input('idTramite', sql.Int, parseInt(data.idTramite));
         request.input('idVehiculo', sql.Int, parseInt(data.idVehiculo));
+        request.input('idEstatus', sql.Int, 1);
         request.input('placa', sql.NVarChar(20), data.placa);
         request.input('propietario', sql.NVarChar(150), data.propietario);
         request.input('placaDelanteraVer', sql.Bit, parseInt(data.placaDelanteraVer));
@@ -980,6 +985,266 @@ async function obtenerVehiculoYAseguradora(idConcesion, idVehiculo) {
         throw new Error(`Error al obtener vehículo y aseguradora: ${err.message}`);
     }
 }
+/**
+ * Modifica los datos del vehículo y la aseguradora para una concesión específica.
+ * @async
+ * @function modificarVehiculoYAseguradora
+ * @param {Object} vehiculoData - Datos del vehículo para el procedimiento CV_ModificarVehiculo.
+ * @param {Object} seguroData - Datos de la aseguradora para el procedimiento AseguradoraInsertar.
+ * @returns {Promise<Object>} Objeto con `idVehiculo` (ID del vehículo modificado) y `returnValue`.
+ * @throws {Error} Si falla la ejecución de los procedimientos.
+ */
+async function modificarVehiculoYAseguradora(vehiculoData, seguroData) {
+    try {
+        // Modificar vehículo usando poolVehiclePromise
+        const poolVehicle = await poolVehiclePromise;
+        const vehicleRequest = poolVehicle.request();
+        vehicleRequest.input('Anio', sql.Int, vehiculoData.Anio);
+        vehicleRequest.input('NumeroPasajeros', sql.Int, vehiculoData.NumeroPasajeros);
+        vehicleRequest.input('Capacidad', sql.VarChar(15), vehiculoData.Capacidad);
+        vehicleRequest.input('Cilindros', sql.Int, vehiculoData.Cilindros);
+        vehicleRequest.input('Clase', sql.VarChar(50), vehiculoData.Clase);
+        vehicleRequest.input('ClaveVehicular', sql.VarChar(50), vehiculoData.ClaveVehicular);
+        vehicleRequest.input('Color', sql.VarChar(50), vehiculoData.Color);
+        vehicleRequest.input('Combustible', sql.VarChar(50), vehiculoData.Combustible);
+        vehicleRequest.input('servicio', sql.VarChar(100), vehiculoData.servicio);
+        vehicleRequest.input('IdVersion', sql.Int, vehiculoData.IdVersion);
+        vehicleRequest.input('Marca', sql.VarChar(50), vehiculoData.Marca);
+        vehicleRequest.input('NRPV', sql.VarChar(20), vehiculoData.NRPV);
+        vehicleRequest.input('NumeroMotor', sql.VarChar(50), vehiculoData.NumeroMotor);
+        vehicleRequest.input('NumeroPuertas', sql.Int, vehiculoData.NumeroPuertas);
+        vehicleRequest.input('NumeroSerie', sql.VarChar(50), vehiculoData.NumeroSerie);
+        vehicleRequest.input('Origen', sql.VarChar(50), vehiculoData.Origen);
+        vehicleRequest.input('PlacaAnterior', sql.VarChar(20), vehiculoData.PlacaAnterior);
+        vehicleRequest.input('PlacaAsignada', sql.VarChar(20), vehiculoData.PlacaAsignada);
+        vehicleRequest.input('RFV', sql.VarChar(50), vehiculoData.RFV);
+        vehicleRequest.input('Submarca', sql.VarChar(50), vehiculoData.Submarca);
+        vehicleRequest.input('Tipo', sql.VarChar(50), vehiculoData.Tipo);
+        vehicleRequest.input('Uso', sql.VarChar(50), vehiculoData.Uso);
+        vehicleRequest.input('Version', sql.VarChar(50), vehiculoData.Version);
+        vehicleRequest.input('IdTipoPlaca', sql.Int, vehiculoData.IdTipoPlaca);
+        vehicleRequest.input('NumeroToneladas', sql.VarChar(10), vehiculoData.NumeroToneladas);
+        vehicleRequest.input('idPropietario', sql.Int, vehiculoData.idPropietario);
+
+        const vehicleResult = await vehicleRequest.execute('CV_ModificarVehiculo');
+        const idVehiculo = vehicleResult.recordset[0]?.[''];
+
+        // Modificar o insertar aseguradora usando poolPromise
+        const pool = await poolPromise;
+        const insuranceRequest = pool.request();
+        insuranceRequest.input('idConcesion', sql.Int, seguroData.idConcesion);
+        insuranceRequest.input('nombre', sql.VarChar(150), seguroData.nombre);
+        insuranceRequest.input('numeroPoliza', sql.VarChar(50), seguroData.numeroPoliza);
+        insuranceRequest.input('fechaExp', sql.Date, seguroData.fechaExp);
+        insuranceRequest.input('fechaVence', sql.Date, seguroData.fechaVence);
+        insuranceRequest.input('folioPago', sql.VarChar(50), seguroData.folioPago);
+        insuranceRequest.input('observaciones', sql.VarChar(5000), seguroData.observaciones);
+        insuranceRequest.input('idUsuario', sql.Int, 0); // Valor fijo hasta revisión de producción
+        insuranceRequest.input('idPerfil', sql.Int, 0); // Valor fijo hasta revisión de producción
+        insuranceRequest.input('idSmartCard', sql.Int, 0); // Valor fijo hasta revisión de producción
+        insuranceRequest.input('idDelegacion', sql.Int, 0); // Valor fijo hasta revisión de producción
+
+        await insuranceRequest.execute('AseguradoraInsertar');
+
+        return {
+            idVehiculo,
+            returnValue: 0
+        };
+    } catch (err) {
+        throw new Error(`Error al modificar vehículo y aseguradora: ${err.message}`);
+    }
+}
+/**
+ * Obtiene la lista de clases de vehículos.
+ * @async
+ * @function obtenerClasesVehiculo
+ * @returns {Promise<Object>} Objeto con `data` (lista de clases) y `returnValue`.
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
+async function obtenerClasesVehiculo() {
+    try {
+        const poolVehicle = await poolVehiclePromise;
+        const request = poolVehicle.request();
+        const result = await request.execute('CV_ObtenerClases');
+        return {
+            data: result.recordset,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar CV_ObtenerClases: ${err.message}`);
+    }
+}
+
+/**
+ * Obtiene la lista de tipos de vehículos.
+ * @async
+ * @function obtenerTiposVehiculo
+ * @returns {Promise<Object>} Objeto con `data` (lista de tipos) y `returnValue`.
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
+async function obtenerTiposVehiculo() {
+    try {
+        const poolVehicle = await poolVehiclePromise;
+        const request = poolVehicle.request();
+        const result = await request.execute('CV_ObtenerTipoVehiculo');
+        return {
+            data: result.recordset,
+            returnValue: result.returnValue
+        };
+        } catch (err) {
+        throw new Error(`Error al ejecutar CV_ObtenerTipoVehiculo: ${err.message}`);
+    }
+}
+
+/**
+ * Obtiene la lista de categorías de vehículos por ID de clase.
+ * @async
+ * @param {number} idClase - ID de la clase del vehículo.
+ * @returns {Promise<Object>} Objeto con `data` (lista de categorías) y `returnValue`.
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
+async function obtenerCategoriasVehiculo(idClase) {
+    try {
+        const poolVehicle = await poolVehiclePromise;
+        const request = poolVehicle.request();
+        request.input('IdClase', sql.Int, idClase);
+        const result = await request.execute('CV_ObtenerCategoriaVehiculo');
+        return {
+            data: result.recordset,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar CV_ObtenerCategoriaVehiculo: ${err.message}`);
+    }
+}
+
+/**
+ * Obtiene la lista de marcas de vehículos por clave de categoría.
+ * @async
+ * @function obtenerMarcasVehiculo
+ * @param {string} claveCategoria - Clave de la categoría del vehículo.
+ * @returns {Promise<Object>} Objeto con `data` (lista de marcas) y `returnValue`.
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
+async function obtenerMarcasVehiculo(claveCategoria) {
+    try {
+        const poolVehicle = await poolVehiclePromise;
+        const request = poolVehicle.request();
+        request.input('ClaveCategoria', sql.NVarChar, claveCategoria);
+        const result = await request.execute('CV_ObtenerMarcasVehiculo');
+        return {
+            data: result.recordset,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar CV_ObtenerMarcasVehiculo: ${err.message}`);
+    }
+}
+
+/**
+ * Obtiene la lista de submarcas por marca y categoría.
+ * @async
+ * @function obtenerSubmarcasPorMarcaCategoria
+ * @param {number} idMarca - ID de la marca del vehículo.
+ * @param {number} idCategoria - ID de la categoría del vehículo.
+ * @returns {Promise<Object>} Objeto con `data` (lista de submarcas) y `returnValue`.
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
+async function obtenerSubmarcasPorMarcaCategoria(idMarca, idCategoria) {
+    try {
+        const poolVehicle = await poolVehiclePromise;
+        const request = poolVehicle.request();
+        request.input('IdMarca', sql.Int, idMarca);
+        request.input('IdCategoria', sql.Int, idCategoria);
+        const result = await request.execute('CV_ObtenerSubmarcaPorMarcaCategoria');
+        return {
+            data: result.recordset,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar CV_ObtenerSubmarcaPorMarcaCategoria: ${err.message}`);
+    }
+}
+
+/**
+ * Obtiene la lista de versiones por clase y submarca.
+ * @async
+ * @function obtenerVersionesPorClaseSubmarca
+ * @param {number} idClase - ID de la clase del vehículo.
+ * @param {number} idSubMarca - ID de la submarca del vehículo.
+ * @returns {Promise<Object>} Objeto con `data` (lista de versiones) y `returnValue`.
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
+async function obtenerVersionesPorClaseSubmarca(idClase, idSubMarca) {
+    try {
+        const poolVehicle = await poolVehiclePromise;
+        const request = poolVehicle.request();
+        request.input('idClase', sql.Int, idClase);
+        request.input('idSubMarca', sql.Int, idSubMarca);
+        const result = await request.execute('CV_ObtenerVersionPorClaseSubmarca');
+        return {
+            data: result.recordset,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar CV_ObtenerVersionPorClaseSubmarca: ${err.message}`);
+    }
+}
+
+async function buscarRevistasVehiculares(noConcesion, placa, estatus, fechaInicio, fechaFin, page = 1, pageSize = 10) {
+    try {
+        const pool = await poolPromise;
+        const request = pool.request();
+
+        let procedure = '';
+        let params = {};
+
+        // Determinar el procedimiento base
+        if (noConcesion) {
+            procedure = 'RV_ObtenerListaRevistaPorConcesion';
+            request.input('numeroConcesion', sql.Int, noConcesion);
+        } else if (placa) {
+            procedure = 'RV_ObtenerListaRevistaPorPlaca';
+            request.input('placa', sql.NVarChar(15), placa);
+        } else {
+            procedure = 'RV_ObtenerListaRevista';
+        }
+
+        // Configurar parámetros comunes
+        request.input('objetosPorPagina', sql.Int, pageSize);
+        request.input('pagina', sql.Int, page);
+        request.input('estatus', sql.Int, estatus || null);
+        request.input('fechaInspeccionInicio', sql.DateTime, fechaInicio || '2000-01-01 00:00:00.000');
+        request.input('fechaInspeccionFin', sql.DateTime, fechaFin || new Date());
+
+        // Ejecutar el procedimiento
+        const result = await request.execute(procedure);
+
+        // Filtrar por placa si se proporcionó y se usó RV_ObtenerListaRevistaPorConcesion
+        let filteredData = result.recordset;
+        if (noConcesion && placa) {
+            filteredData = result.recordset.filter(item => item.Placa === placa);
+        }
+        console.log(filteredData);
+        const enrichedData = filteredData.map(item => {
+            return {
+                ...item,
+                Estatus: revistaEstatusMap.get(item.IdEstatus) || 'Desconocido'
+            };
+        });
+
+        return {
+            data: enrichedData,
+            totalRecords: enrichedData.length,
+            page: page,
+            pageSize: pageSize,
+            returnValue: 0
+        };
+    } catch (err) {
+        throw new Error(`Error al buscar revistas vehiculares: ${err.message}`);
+    }
+}
+
 module.exports = {
     obtenerInformacionCompletaPorConcesion,
     obtenerConcesionPorId,
@@ -1000,5 +1265,13 @@ module.exports = {
     obtenerImagenesRevista,
     obtenerTiposImagen,
     obtenerVehiculoYAseguradora,
-    generarReporte
+    generarReporte,
+    modificarVehiculoYAseguradora,
+    obtenerClasesVehiculo,
+    obtenerTiposVehiculo,
+    obtenerCategoriasVehiculo,
+    obtenerMarcasVehiculo,
+    obtenerSubmarcasPorMarcaCategoria,
+    obtenerVersionesPorClaseSubmarca,
+    buscarRevistasVehiculares
 };

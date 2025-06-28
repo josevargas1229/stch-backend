@@ -455,5 +455,215 @@ router.get('/revista/:idRV/imagenes', async (req, res) => {
         res.status(500).json({ error: 'Error al obtener las imágenes' });
     }
 });
+/**
+ * Ruta para obtener la lista de clases de vehículos.
+ * @name GET /vehiculo/clases
+ * @function
+ * @returns {Object} Respuesta JSON con `data` (lista de clases) y `returnValue`.
+ */
+router.get('/vehiculo/clases', async (req, res) => {
+    try {
+        const result = await dbService.obtenerClasesVehiculo();
+        res.json({
+            data: result.data,
+            returnValue: result.returnValue
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener clases de vehículos' });
+    }
+});
 
+/**
+ * Ruta para obtener la lista de tipos de vehículos.
+ * @name GET /vehiculo/tipos
+ * @function
+ * @returns {Object} Respuesta JSON con `data` (lista de tipos) y `returnValue`.
+ */
+router.get('/vehiculo/tipos', async (req, res) => {
+    try {
+        const result = await dbService.obtenerTiposVehiculo();
+        res.json({
+            data: result.data,
+            returnValue: result.returnValue
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener tipos de vehículos' });
+    }
+});
+
+/**
+ * Ruta para obtener la lista de categorías de vehículos por ID de clase.
+ * @name GET /vehiculo/categorias
+ * @function
+ * @param {Object} req.query - Parámetros de consulta.
+ * @param {string} req.query.idClase - ID de la clase del vehículo.
+ * @returns {Object} Respuesta JSON con `data` (lista de categorías) y `returnValue`.
+ */
+router.get('/vehiculo/categorias', async (req, res) => {
+    try {
+        const { idClase } = req.query;
+        const idClaseInt = parseInt(idClase);
+        if (isNaN(idClaseInt)) {
+            return res.status(400).json({ error: 'ID de clase inválido' });
+        }
+        const result = await dbService.obtenerCategoriasVehiculo(idClaseInt);
+        res.json({
+            data: result.data,
+            returnValue: result.returnValue
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener categorías de vehículos' });
+    }
+});
+
+/**
+ * Ruta para obtener la lista de marcas de vehículos por clave de categoría.
+ * @name GET /vehiculo/marcas
+ * @function
+ * @param {Object} req.query - Parámetros de consulta.
+ * @param {string} req.query.claveCategoria - Clave de la categoría del vehículo.
+ * @returns {Object} Respuesta JSON con `data` (lista de marcas) y `returnValue`.
+ */
+router.get('/vehiculo/marcas', async (req, res) => {
+    try {
+        const { claveCategoria } = req.query;
+        if (!claveCategoria) {
+            return res.status(400).json({ error: 'Clave de categoría requerida' });
+        }
+        const result = await dbService.obtenerMarcasVehiculo(claveCategoria);
+        res.json({
+            data: result.data,
+            returnValue: result.returnValue
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener marcas de vehículos' });
+    }
+});
+
+/**
+ * Ruta para obtener la lista de submarcas por marca y categoría.
+ * @name GET /vehiculo/submarcas
+ * @function
+ * @param {Object} req.query - Parámetros de consulta.
+ * @param {string} req.query.idMarca - ID de la marca del vehículo.
+ * @param {string} req.query.idCategoria - ID de la categoría del vehículo.
+ * @returns {Object} Respuesta JSON con `data` (lista de submarcas) y `returnValue`.
+ */
+router.get('/vehiculo/submarcas', async (req, res) => {
+    try {
+        const { idMarca, idCategoria } = req.query;
+        const idMarcaInt = parseInt(idMarca);
+        const idCategoriaInt = parseInt(idCategoria);
+        if (isNaN(idMarcaInt) || isNaN(idCategoriaInt)) {
+            return res.status(400).json({ error: 'ID de marca o categoría inválido' });
+        }
+        const result = await dbService.obtenerSubmarcasPorMarcaCategoria(idMarcaInt, idCategoriaInt);
+        res.json({
+            data: result.data,
+            returnValue: result.returnValue
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener submarcas de vehículos' });
+    }
+});
+
+/**
+ * Ruta para obtener la lista de versiones por clase y submarca.
+ * @name GET /vehiculo/versiones
+ * @function
+ * @param {Object} req.query - Parámetros de consulta.
+ * @param {string} req.query.idClase - ID de la clase del vehículo.
+ * @param {string} req.query.idSubMarca - ID de la submarca del vehículo.
+ * @returns {Object} Respuesta JSON con `data` (lista de versiones) y `returnValue`.
+ */
+router.get('/vehiculo/versiones', async (req, res) => {
+    try {
+        const { idClase, idSubMarca } = req.query;
+        const idClaseInt = parseInt(idClase);
+        const idSubMarcaInt = parseInt(idSubMarca);
+        if (isNaN(idClaseInt) || isNaN(idSubMarcaInt)) {
+            return res.status(400).json({ error: 'ID de clase o submarca inválido' });
+        }
+        const result = await dbService.obtenerVersionesPorClaseSubmarca(idClaseInt, idSubMarcaInt);
+        res.json({
+            data: result.data,
+            returnValue: result.returnValue
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener versiones de vehículos' });
+    }
+});
+/**
+ * Ruta para modificar los datos del vehículo y la aseguradora de una concesión.
+ * @name PUT /concesion/:idConcesion/vehiculo/:idVehiculo
+ * @function
+ * @param {Object} req.params - Parámetros de ruta.
+ * @param {string} req.params.idConcesion - ID de la concesión.
+ * @param {string} req.params.idVehiculo - ID del vehículo.
+ * @param {Object} req.body.vehiculoData - Datos del vehículo.
+ * @param {Object} req.body.seguroData - Datos de la aseguradora.
+ * @returns {Object} Respuesta JSON con `idVehiculo` y `returnValue`, o error 400/500.
+ */
+router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
+    try {
+        const { idConcesion, idVehiculo } = req.params;
+        const { vehiculoData, seguroData } = req.body;
+
+        // Validar IDs
+        const idConcesionInt = parseInt(idConcesion);
+        const idVehiculoInt = parseInt(idVehiculo);
+        if (isNaN(idConcesionInt) || isNaN(idVehiculoInt)) {
+            return res.status(400).json({ error: 'ID de concesión o vehículo inválido' });
+        }
+
+        // Agregar idConcesion a los datos de la aseguradora
+        seguroData.idConcesion = idConcesionInt;
+
+        // Ejecutar la modificación
+        const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData);
+        res.json({
+            idVehiculo: result.idVehiculo,
+            returnValue: result.returnValue,
+            message: 'Vehículo y aseguradora modificados correctamente'
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al modificar vehículo y aseguradora' });
+    }
+});
+router.get('/revista/buscar', async (req, res) => {
+    try {
+        const { noConcesion, placa, estatus, fechaInicio, fechaFin, page = 1, pageSize = 10 } = req.query;
+
+        // Validar fechas
+        const dateRegex = /^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+        if ((fechaInicio && !dateRegex.test(fechaInicio)) || (fechaFin && !dateRegex.test(fechaFin))) {
+            return res.status(400).json({ error: 'Las fechas deben estar en formato DD/MM/YYYY' });
+        }
+
+        const result = await dbService.buscarRevistasVehiculares(
+            noConcesion || null,
+            placa || null,
+            estatus || null,
+            fechaInicio ? `${fechaInicio.split('/')[1]}/${fechaInicio.split('/')[0]}/${fechaInicio.split('/')[2]}` : null,
+            fechaFin ? `${fechaFin.split('/')[1]}/${fechaFin.split('/')[0]}/${fechaFin.split('/')[2]}` : null,
+            parseInt(page),
+            parseInt(pageSize)
+        );
+
+        if (!result.data || result.data.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron revistas vehiculares', returnValue: result.returnValue });
+        }
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al buscar revistas vehiculares' });
+    }
+});
 module.exports = router;
