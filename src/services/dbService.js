@@ -762,7 +762,15 @@ async function obtenerInformacionCompletaPorConcesion(idConcesion) {
         throw new Error(`Error al obtener información completa: ${err.message}`);
     }
 }
-
+/**
+ * Obtiene los tipos de trámite disponibles para revistas vehiculares.
+ * @async
+ * @function obtenerTiposTramite
+ * @returns {Promise<Object>} Objeto con los resultados:
+ * - `data`: Array de tipos de trámite devueltos por el procedimiento `RV_ObtenerTipoTramite`.
+ * - `returnValue`: Valor de retorno del procedimiento almacenado.
+ * @throws {Error} Si ocurre un error al ejecutar el procedimiento, con el mensaje "Error al obtener tipos de trámite: [mensaje de error]".
+ */
 async function obtenerTiposTramite() {
         try {
             const pool = await poolPromise;
@@ -776,7 +784,55 @@ async function obtenerTiposTramite() {
         }
 }
 
-// Nueva función: Insertar inspección vehicular
+/**
+ * Inserta una nueva revista vehicular en la base de datos.
+ * @async
+ * @function insertarRevista
+ * @param {Object} data - Datos de la revista vehicular.
+ * @param {number} data.idConcesion - ID de la concesión.
+ * @param {number} data.idPropietario - ID del propietario.
+ * @param {number} data.idTramite - ID del tipo de trámite.
+ * @param {number} data.idVehiculo - ID del vehículo.
+ * @param {string} data.placa - Placa del vehículo.
+ * @param {string} data.propietario - Nombre del propietario.
+ * @param {number} data.placaDelanteraVer - Estado de la placa delantera (0 o 1).
+ * @param {number} data.placaTraseraVer - Estado de la placa trasera (0 o 1).
+ * @param {number} data.calcaVerificacionVer - Estado de la calca de verificación (0 o 1).
+ * @param {number} data.calcaTenenciaVer - Estado de la calca de tenencia (0 o 1).
+ * @param {number} data.pinturaCarroceriaVer - Estado de la pintura de la carrocería (0 o 1).
+ * @param {number} data.estadoLlantasVer - Estado de las llantas (0 o 1).
+ * @param {number} data.defensasVer - Estado de las defensas (0, 1 o 2).
+ * @param {number} data.vidriosVer - Estado de los vidrios (0, 1 o 2).
+ * @param {number} data.limpiadoresVer - Estado de los limpiadores (0, 1 o 2).
+ * @param {number} data.espejosVer - Estado de los espejos (0, 1 o 2).
+ * @param {number} data.llantaRefaccionVer - Estado de la llanta de refacción (0, 1 o 2).
+ * @param {number} data.parabrisasMedallonVer - Estado del parabrisas/medallón (0, 1 o 2).
+ * @param {number} data.claxonVer - Estado del claxon (0 o 1).
+ * @param {number} data.luzBajaVer - Estado de las luces bajas (0 o 1).
+ * @param {number} data.luzAltaVer - Estado de las luces altas (0 o 1).
+ * @param {number} data.cuartosVer - Estado de los cuartos (0 o 1).
+ * @param {number} data.direccionalesVer - Estado de las direccionales (0 o 1).
+ * @param {number} data.intermitentesVer - Estado de las intermitentes (0 o 1).
+ * @param {number} data.stopVer - Estado de las luces de freno (0 o 1).
+ * @param {number} data.timbreVer - Estado del timbre (0 o 1).
+ * @param {number} data.estinguidorVer - Estado del extintor (0, 1 o 2).
+ * @param {number} data.herramientasVer - Estado de las herramientas (0 o 1).
+ * @param {number} data.sistemaFrenadoVer - Estado del sistema de frenos (0 o 1).
+ * @param {number} data.sistemaDireccionVer - Estado del sistema de dirección (0 o 1).
+ * @param {number} data.sistemaSuspensionVer - Estado del sistema de suspensión (0 o 1).
+ * @param {number} data.interioresVer - Estado de los interiores (0 o 1).
+ * @param {number} data.botiquinVer - Estado del botiquín (0 o 1).
+ * @param {number} data.cinturonSeguridadVer - Estado del cinturón de seguridad (0 o 1).
+ * @param {string} [data.observaciones] - Observaciones de la inspección.
+ * @param {number} data.aprobado - Estado de aprobación (0 o 1).
+ * @param {number} data.imagenCromaticaVer - Estado de la imagen cromática (0 o 1).
+ * @param {string} [data.folio] - Folio de la revista (opcional, por defecto '').
+ * @param {number} data.IdUser - ID del usuario que registra la revista.
+ * @param {string} [data.Inspector] - Nombre del inspector.
+ * @returns {Promise<Object>} Objeto con el ID de la revista insertada:
+ * - `idRV`: ID de la revista vehicular generada.
+ * @throws {Error} Si ocurre un error al ejecutar el procedimiento `RV_InsertarRevista`, con el mensaje "Error al insertar la inspección: [mensaje de error]".
+ */
 async function insertarRevista(data) {
     try {
         const pool = await poolPromise;
@@ -1027,6 +1083,15 @@ async function obtenerRevistaPorId(idRV) {
         throw new Error('Error al obtener la inspección: ' + err.message);
     }
 }
+/**
+ * Obtiene los tipos de imagen disponibles para revistas vehiculares.
+ * @async
+ * @function obtenerTiposImagen
+ * @returns {Promise<Object>} Objeto con los resultados:
+ * - `data`: Array de tipos de imagen devueltos por el procedimiento `RV_ObtenerTipoImagen`.
+ * - `returnValue`: Valor de retorno del procedimiento almacenado.
+ * @throws {Error} Si ocurre un error al ejecutar el procedimiento, con el mensaje "Error al obtener tipos de imagen: [mensaje de error]".
+ */
 async function obtenerTiposImagen() {
     try {
         const pool = await poolPromise;
@@ -1285,7 +1350,25 @@ async function obtenerVersionesPorClaseSubmarca(idClase, idSubMarca) {
         throw new Error(`Error al ejecutar CV_ObtenerVersionPorClaseSubmarca: ${err.message}`);
     }
 }
-
+/**
+ * Busca revistas vehiculares según criterios específicos, usando procedimientos almacenados.
+ * @async
+ * @function buscarRevistasVehiculares
+ * @param {number} [noConcesion] - Número de concesión para filtrar revistas (opcional).
+ * @param {string} [placa] - Placa del vehículo para filtrar revistas (opcional).
+ * @param {number} [estatus] - ID del estatus de la revista (opcional, null si no se filtra por estatus).
+ * @param {string|Date} [fechaInicio] - Fecha de inicio para filtrar inspecciones (formato 'YYYY-MM-DD', opcional, por defecto '2000-01-01').
+ * @param {string|Date} [fechaFin] - Fecha de fin para filtrar inspecciones (formato 'YYYY-MM-DD', opcional, por defecto fecha actual).
+ * @param {number} [page=1] - Número de página para paginación.
+ * @param {number} [pageSize=10] - Cantidad de registros por página.
+ * @returns {Promise<Object>} Objeto con los resultados de la búsqueda:
+ * - `data`: Array de revistas vehiculares con sus detalles y el campo `Estatus` enriquecido (mapeado desde `IdEstatus`).
+ * - `totalRecords`: Número total de registros devueltos.
+ * - `page`: Página actual.
+ * - `pageSize`: Tamaño de la página.
+ * - `returnValue`: Valor de retorno (0 para éxito).
+ * @throws {Error} Si ocurre un error al ejecutar el procedimiento almacenado, con el mensaje "Error al buscar revistas vehiculares: [mensaje de error]".
+ */
 async function buscarRevistasVehiculares(noConcesion, placa, estatus, fechaInicio, fechaFin, page = 1, pageSize = 10) {
     try {
         const pool = await poolPromise;
@@ -1339,7 +1422,39 @@ async function buscarRevistasVehiculares(noConcesion, placa, estatus, fechaInici
         throw new Error(`Error al buscar revistas vehiculares: ${err.message}`);
     }
 }
+/**
+ * Registra la impresión de una revista vehicular.
+ * @param {number} idRV - ID de la inspección vehicular.
+ * @param {number} idUsuario - ID del usuario que registra la impresión.
+ * @param {string} folio - Folio de la revista (opcional, por defecto '').
+ * @returns {Object} - Resultado con success.
+ */
+async function imprimirRevista(idRV, idUsuario, folio = '') {
+    try {
+        const pool = await poolPromise;
+        const request = pool.request()
+            .input('idRevistaVehicular', sql.BigInt, idRV)
+            .input('idUsuario', sql.Int, idUsuario)
+            .input('folio', sql.NVarChar(20), folio);
 
+        await request.query(`
+            INSERT INTO [${process.env.DB_NAME}].[RevistaVehicular].[Historial]
+                ([IdRevistaVehicular], [IdOperacion], [IdUsuario], [Fecha])
+            VALUES
+                (@idRevistaVehicular, 2, @idUsuario, GETDATE())
+        `);
+
+        await request.query(`
+            UPDATE [${process.env.DB_NAME}].[dbo].[RevistaVehicular]
+            SET IdEstatus = 2, Folio = @folio
+            WHERE IdRevistaVehicular = @idRevistaVehicular
+        `);
+
+        return { success: true };
+    } catch (err) {
+        throw new Error(err.message);
+    }
+}
 module.exports = {
     obtenerInformacionCompletaPorConcesion,
     obtenerConcesionPorId,
@@ -1370,5 +1485,6 @@ module.exports = {
     obtenerMarcasVehiculo,
     obtenerSubmarcasPorMarcaCategoria,
     obtenerVersionesPorClaseSubmarca,
-    buscarRevistasVehiculares
+    buscarRevistasVehiculares,
+    imprimirRevista
 };

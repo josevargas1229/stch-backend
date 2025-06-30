@@ -251,13 +251,27 @@ router.get('/vehiculo/buscar', async (req, res) => {
  * @param {string} [req.query.page=1] - Número de página (entero positivo, por defecto 1).
  * @param {string} [req.query.format=json] - Formato de salida (json, excel, pdf).
  * @param {string} [req.query.allPages=false] - Si es true, exporta todos los registros sin paginación.
- * @param {string} [req.query.logo] - Logo en formato base64 (opcional).
  * @returns {Object} Respuesta JSON, archivo Excel o PDF según el formato solicitado.
  */
 router.get('/reporte/inspecciones', async (req, res) => {
     await dbService.generarReporte(req, res);
 });
-
+/**
+ * Ruta para generar un reporte de inspecciones realizadas entre dos fechas, con paginación y exportación, incluyendo un logo opcional.
+ * @name POST /reporte/inspecciones
+ * @function
+ * @param {Object} req.body - Objeto con parámetros de la solicitud.
+ * @param {string} req.body.fechaInicio - Fecha de inicio del rango (formato: DD/MM/YYYY).
+ * @param {string} req.body.fechaFin - Fecha de fin del rango (formato: DD/MM/YYYY).
+ * @param {number} [req.body.page=1] - Número de página (entero positivo, por defecto 1).
+ * @param {string} [req.body.format=json] - Formato de salida (json, excel, pdf).
+ * @param {boolean} [req.body.allPages=false] - Si es true, exporta todos los registros sin paginación.
+ * @param {Object} [req.file] - Archivo de logo subido.
+ * @returns {Object} Respuesta JSON, archivo Excel o PDF según el formato solicitado.
+ * @throws {Object} Error con código de estado:
+ * - 400: Si los parámetros `fechaInicio` o `fechaFin` no están en formato DD/MM/YYYY o faltan.
+ * - 500: Si ocurre un error interno al generar el reporte.
+ */
 router.post('/reporte/inspecciones', upload.single('logo'), async (req, res) => {
     await dbService.generarReporte(req, res);
 });
@@ -724,6 +738,53 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
         res.status(500).json({ error: 'Error al modificar vehículo y aseguradora' });
     }
 });
+/**
+ * Ruta para registrar la impresión de una revista vehicular usando el procedimiento RV_ImprimirRevista.
+ * @name POST /revista/imprimir
+ * @function
+ * @param {Object} req.body - Cuerpo de la solicitud con `idRV` y `folio` (opcional).
+ * @returns {Object} Respuesta JSON con `success` y `message`, o error 400/401/500.
+ */
+router.post('/revista/imprimir', async (req, res) => {
+    try {
+        const { idRV, folio = '' } = req.body;
+        const idUsuario = req.session.userId || 0;
+
+        // Validar idRV
+        if (!idRV || isNaN(parseInt(idRV))) {
+            return res.status(400).json({ error: 'Se requiere un ID de inspección (idRV) válido' });
+        }
+        const result = await dbService.imprimirRevista(idRV, idUsuario, folio);
+
+        res.json({ success: true, message: 'Impresión registrada correctamente' });
+    } catch (err) {
+        console.error('Error en /revista/imprimir:', err);
+        res.status(500).json({ error: 'Error interno al registrar la impresión' });
+    }
+});
+/**
+ * Ruta para buscar revistas vehiculares según criterios específicos.
+ * @name GET /revista/buscar
+ * @function
+ * @param {Object} req.query - Parámetros de consulta:
+ * @param {number} [req.query.noConcesion] - Número de concesión para filtrar revistas (opcional).
+ * @param {string} [req.query.placa] - Placa del vehículo para filtrar revistas (opcional).
+ * @param {number} [req.query.estatus] - ID del estatus de la revista (opcional).
+ * @param {string} [req.query.fechaInicio] - Fecha de inicio en formato DD/MM/YYYY (opcional).
+ * @param {string} [req.query.fechaFin] - Fecha de fin en formato DD/MM/YYYY (opcional).
+ * @param {number} [req.query.page=1] - Número de página para paginación.
+ * @param {number} [req.query.pageSize=10] - Cantidad de registros por página.
+ * @returns {Object} Respuesta JSON con los resultados de la búsqueda:
+ * - `data`: Array de revistas vehiculares con sus detalles y el campo `Estatus` enriquecido.
+ * - `totalRecords`: Número total de registros devueltos.
+ * - `page`: Página actual.
+ * - `pageSize`: Tamaño de la página.
+ * - `returnValue`: Valor de retorno (0 para éxito).
+ * @throws {Object} Error con código de estado:
+ * - 400: Si las fechas no están en formato DD/MM/YYYY.
+ * - 404: Si no se encuentran revistas vehiculares.
+ * - 500: Si ocurre un error interno al buscar revistas.
+ */
 router.get('/revista/buscar', async (req, res) => {
     try {
         const { noConcesion, placa, estatus, fechaInicio, fechaFin, page = 1, pageSize = 10 } = req.query;
