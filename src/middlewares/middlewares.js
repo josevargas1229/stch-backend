@@ -1,5 +1,6 @@
 const sql = require('mssql');
 const dbService = require('../services/loginService');
+const poolPromiseUsers = require('../config/dbUsers');
 
 /**
  * Middleware para registrar solicitudes en api_logs.
@@ -14,8 +15,9 @@ const logRequest = async (req, res, next) => {
         const method = req.method;
         const publicKey = apiKey || 'N/A';
         const ipAddress = req.ip || req.connection.remoteAddress;
+        const userId = req.user?.id || 0; // Obtener userId desde req.user si existe
 
-        await dbService.logApiRequest(apiKey, route, method, publicKey, ipAddress);
+        await dbService.logApiRequest(apiKey, route, method, publicKey, ipAddress, userId);
     } catch (err) {
         console.error('Error en middleware de logging:', err.message);
     }
@@ -40,10 +42,18 @@ const authenticateApiKeyOrSession = async (req, res, next) => {
 
         // Verificar sesión
         if (req.session.userId) {
-            const pool = await require('../config/db');
+            const pool = await poolPromiseUsers;
             const request = pool.request();
-            request.input('id', sql.BigInt, req.session.userId);
-            const result = await request.query('SELECT id, name, username, level FROM [dbo].[users] WHERE id = @id');
+            request.input('UserID', sql.Int, req.session.userId);
+            const result = await request.query(`
+                SELECT 
+                    UserID AS id, 
+                    Name + ' ' + ISNULL(LastName, '') + ' ' + ISNULL(Surname, '') AS name,
+                    Login AS username, 
+                    StatusID AS level
+                FROM [dbo].[mUsers] 
+                WHERE UserID = @UserID
+            `);
             if (result.recordset[0]) {
                 req.user = result.recordset[0];
                 return next();

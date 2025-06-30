@@ -4,6 +4,7 @@
  */
 const poolPromise = require('../config/db');
 const poolVehiclePromise = require('../config/dbVehicle');
+const poolUsersPromise = require('../config/dbUsers');
 const sql = require('mssql');
 const ExcelJS = require('exceljs');
 // Catálogos en memoria
@@ -1039,10 +1040,10 @@ async function modificarVehiculoYAseguradora(vehiculoData, seguroData) {
         insuranceRequest.input('fechaVence', sql.Date, seguroData.fechaVence);
         insuranceRequest.input('folioPago', sql.VarChar(50), seguroData.folioPago);
         insuranceRequest.input('observaciones', sql.VarChar(5000), seguroData.observaciones);
-        insuranceRequest.input('idUsuario', sql.Int, 0); // Valor fijo hasta revisión de producción
-        insuranceRequest.input('idPerfil', sql.Int, 0); // Valor fijo hasta revisión de producción
-        insuranceRequest.input('idSmartCard', sql.Int, 0); // Valor fijo hasta revisión de producción
-        insuranceRequest.input('idDelegacion', sql.Int, 0); // Valor fijo hasta revisión de producción
+        insuranceRequest.input('idUsuario', sql.Int, seguroData.idUsuario || 0);
+        insuranceRequest.input('idPerfil', sql.Int, seguroData.idPerfil || 0);
+        insuranceRequest.input('idSmartCard', sql.Int, seguroData.idSmartCard || 0);
+        insuranceRequest.input('idDelegacion', sql.TinyInt, seguroData.idDelegacion || 0);
 
         await insuranceRequest.execute('AseguradoraInsertar');
 

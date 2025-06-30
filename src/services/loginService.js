@@ -1,50 +1,59 @@
-const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const sql = require('mssql');
-const poolPromise = require('../config/db');
+const poolPromiseUsers = require('../config/dbUsers');
 
 /**
  * Autentica a un usuario por username y contraseña, genera o recupera una clave API.
  * @async
  * @function loginUser
  * @param {string} username - Nombre de usuario.
- * @param {string} password - Contraseña del usuario.
+ * @param {string} password - Contraseña del usuario (en texto plano).
  * @returns {Promise<Object>} Objeto con `user` (detalles del usuario), `apiKey` (clave API) y `returnValue`.
  * @throws {Error} Si falla la autenticación o la consulta.
  */
 async function loginUser(username, password) {
     try {
-        if (!username || !password) {
-            throw new Error('Se requieren username y password');
+        // Validar entradas
+        if (typeof username !== 'string' || typeof password !== 'string' ||
+            username.length > 50 || password.length > 50) {
+            throw new Error('Entradas inválidas para username o password');
         }
 
-        const pool = await poolPromise;
-        const request = pool.request();
-        request.input('username', sql.VarChar, username);
+        // Hashear la contraseña con SHA-1
+        const hashedPassword = crypto.createHash('sha1').update(password).digest('hex');
 
-        // Buscar usuario por username
-        const userResult = await request.query('SELECT id, name, password FROM [dbo].[users] WHERE username = @username');
+        const pool = await poolPromiseUsers;
+        const request = pool.request();
+        request.input('Login', sql.VarChar(50), username);
+        request.input('Password', sql.NVarChar(50), hashedPassword);
+
+        // Usar procedimiento almacenado spmUser_DoLogin
+        const userResult = await request.execute('spmUser_DoLogin');
         const user = userResult.recordset[0];
         if (!user) {
-            throw new Error('Usuario no encontrado');
-        }
-        // Comparar contraseña (asumiendo bcrypt)
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            throw new Error('Contraseña incorrecta');
+            throw new Error('Usuario no encontrado o contraseña incorrecta');
         }
 
-        // Buscar clave API existente y no eliminada
-        request.input('user_id', sql.BigInt, user.id);
-        const apiKeyResult = await request.query('SELECT id, [key], level FROM [dbo].[api_keys] WHERE user_id = @user_id AND deleted_at IS NULL');
+        // Verificar si el usuario tiene sesión activa
+        if (user.IsActiveSession === 0) {
+            throw new Error('No se permite la autenticación: sesión no activa');
+        }
+
+        // Buscar clave API existente en WP.SIASHidalgo.TransportePublico
+        const poolTransporte = await require('../config/db');
+        const apiKeyRequest = poolTransporte.request();
+        apiKeyRequest.input('user_id', sql.BigInt, user.UserID);
+        const apiKeyResult = await apiKeyRequest.query(
+            'SELECT id, [key], level FROM [dbo].[api_keys] WHERE user_id = @user_id AND deleted_at IS NULL'
+        );
         let apiKey = apiKeyResult.recordset[0];
 
         if (!apiKey) {
             // Generar nueva clave API
             const newApiKey = crypto.randomBytes(32).toString('hex');
-            const level = user.level || 1;
-            await request
-                .input('key', sql.VarChar, newApiKey)
+            const level = user.StatusID || 1; // Usar StatusID como nivel por defecto
+            await apiKeyRequest
+                .input('key', sql.VarChar(255), newApiKey)
                 .input('level', sql.SmallInt, level)
                 .input('ignore_limits', sql.SmallInt, 0)
                 .input('created_at', sql.DateTime2, new Date())
@@ -53,12 +62,17 @@ async function loginUser(username, password) {
                     VALUES (@user_id, @key, @level, @ignore_limits, @created_at);
                     SELECT SCOPE_IDENTITY() AS id;
                 `);
-            
+
             apiKey = { id: apiKeyResult.recordset[0]?.id, key: newApiKey, level };
         }
 
         return {
-            user: { id: user.id, name: user.name, username: user.username, level: user.level },
+            user: {
+                id: user.UserID,
+                name: `${user.Name} ${user.LastName || ''} ${user.Surname || ''}`.trim(),
+                username: user.Login,
+                level: user.StatusID
+            },
             apiKey: apiKey.key,
             returnValue: 0
         };
@@ -66,7 +80,6 @@ async function loginUser(username, password) {
         throw new Error(`Error al autenticar usuario: ${err.message}`);
     }
 }
-
 /**
  * Valida una clave API y devuelve el usuario asociado.
  * @async
@@ -81,14 +94,19 @@ async function validateApiKey(apiKey) {
             throw new Error('Se requiere una clave API');
         }
 
-        const pool = await poolPromise;
+        const pool = await require('../config/db'); // Conexión a TransportePublico
         const request = pool.request();
-        request.input('key', sql.VarChar, apiKey);
+        request.input('key', sql.VarChar(255), apiKey);
 
+        // Usar mUsers en lugar de users para la validación
         const result = await request.query(`
-            SELECT u.id, u.name, u.username, u.level, k.level as api_key_level
+            SELECT u.UserID AS id, 
+                   u.Name + ' ' + ISNULL(u.LastName, '') + ' ' + ISNULL(u.Surname, '') AS name,
+                   u.Login AS username, 
+                   u.StatusID AS level,
+                   k.level AS api_key_level
             FROM [dbo].[api_keys] k
-            JOIN [dbo].[users] u ON k.user_id = u.id
+            JOIN [dbo].[mUsers] u ON k.user_id = u.UserID
             WHERE k.[key] = @key AND k.deleted_at IS NULL
         `);
 
@@ -118,7 +136,7 @@ async function validateApiKey(apiKey) {
  */
 async function logApiRequest(apiKey, route, method, publicKey, ipAddress) {
     try {
-        const pool = await poolPromise;
+        const pool = await require('../config/db');
         const request = pool.request();
 
         // Obtener api_key_id
@@ -133,16 +151,26 @@ async function logApiRequest(apiKey, route, method, publicKey, ipAddress) {
         // Formato de params como en el ejemplo
         const paramsString = `public_key=${publicKey || 'N/A'}`;
 
+        const getMexicoCityDateISO = () => {
+            const now = new Date();
+            const mexicoDateTime = now.toLocaleString('sv-SE', {
+                timeZone: 'America/Mexico_City'
+            });
+            return mexicoDateTime.replace(' ', 'T') + '.000Z';
+        };
+
+        const createdAtISO = getMexicoCityDateISO();
+
         await request
             .input('api_key_id', sql.BigInt, apiKeyId)
             .input('route', sql.VarChar, route)
             .input('method', sql.VarChar, method)
             .input('params', sql.VarChar(sql.MAX), paramsString)
             .input('ip_address', sql.VarChar, ipAddress)
-            .input('created_at', sql.DateTime2, new Date())
+            .input('created_at', sql.DateTime2, createdAtISO)
             .query(`
-                INSERT INTO [dbo].[api_logs] (api_key_id, route, method, params, ip_address, created_at, updated_at)
-                VALUES (@api_key_id, @route, @method, @params, @ip_address, @created_at, @created_at)
+            INSERT INTO [dbo].[api_logs] (api_key_id, route, method, params, ip_address, created_at, updated_at)
+            VALUES (@api_key_id, @route, @method, @params, @ip_address, @created_at, @created_at)
             `);
     } catch (err) {
         console.error(`Error al registrar log: ${err.message}`);

@@ -10,6 +10,7 @@ const { logRequest, authenticateApiKeyOrSession } = require('../middlewares/midd
 const fileUpload = require('express-fileupload');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
+const sql = require('mssql');
 router.use(logRequest);
 /**
  * Ruta para autenticar un usuario y establecer una sesión.
@@ -31,6 +32,7 @@ router.post('/auth/login', async (req, res) => {
 
         // Establecer sesión
         req.session.userId = result.user.id;
+        req.session.userName = result.user.name; // Guardar nombre completo para Inspector
 
         res.json(result);
     } catch (err) {
@@ -328,8 +330,7 @@ router.post('/revista', async (req, res) => {
             observaciones,
             aprobado,
             imagenCromaticaVer,
-            folio,
-            Inspector
+            folio
         } = req.body;
 
         // Validar campos requeridos
@@ -337,8 +338,9 @@ router.post('/revista', async (req, res) => {
             return res.status(400).json({ error: 'Faltan campos requeridos' });
         }
 
-        // Obtener IdUser desde la sesión
+        // Obtener IdUser y nombre completo desde la sesión
         const IdUser = req.session.userId || 0;
+        const Inspector = req.session.userName || 'Desconocido';
 
         const result = await dbService.insertarRevista({
             idConcesion,
@@ -389,7 +391,6 @@ router.post('/revista', async (req, res) => {
         res.status(500).json({ error: 'Error al guardar la inspección' });
     }
 });
-
 /**
  * Ruta para subir una imagen asociada a una inspección vehicular.
  * @name POST /revista/imagen
@@ -622,8 +623,29 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
             return res.status(400).json({ error: 'ID de concesión o vehículo inválido' });
         }
 
-        // Agregar idConcesion a los datos de la aseguradora
+        // Obtener datos de usuario, perfil, smartcard y delegación
+        const poolUsers = await require('../config/dbUsers');
+        const userRequest = poolUsers.request();
+        userRequest.input('UserID', sql.Int, req.session.userId || 0);
+        const userResult = await userRequest.query(`
+            SELECT 
+                p.ProfileID,
+                COALESCE(sc.SmartCardID, 0) AS SmartCardID,
+                COALESCE(ud.DelegationID, 0) AS DelegationID
+            FROM [dbo].[mUsers] u
+            LEFT JOIN [dbo].[dUserProfiles] p ON u.UserID = p.UserID
+            LEFT JOIN [dbo].[mSmartCards] sc ON u.UserID = sc.UserID
+            LEFT JOIN [dbo].[UserDelegations] ud ON u.UserID = ud.UserID
+            WHERE u.UserID = @UserID
+        `);
+        const userData = userResult.recordset[0] || {};
+
+        // Agregar datos de usuario a seguroData
         seguroData.idConcesion = idConcesionInt;
+        seguroData.idUsuario = req.session.userId || 0;
+        seguroData.idPerfil = userData.ProfileID || 0;
+        seguroData.idSmartCard = userData.SmartCardID || 0;
+        seguroData.idDelegacion = userData.DelegationID || 0;
 
         // Ejecutar la modificación
         const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData);
