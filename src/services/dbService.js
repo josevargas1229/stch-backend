@@ -12,7 +12,7 @@ let generoMap = new Map();
 let nacionalidadMap = new Map();
 let estatusMap = new Map();
 let revistaEstatusMap = new Map();
-
+require('dotenv').config();
 /**
  * Inicializa los catálogos en memoria (género, nacionalidad, estatus del vehículo) al cargar el módulo.
  * @async
@@ -832,62 +832,39 @@ async function insertarRevista(data) {
     }
 }
 
-// Nueva función: Guardar imagen de inspección
+/**
+ * Guarda una imagen asociada a una inspección vehicular usando el procedimiento RV_InsertaImagenRevista.
+ * @param {number} idRV - ID de la inspección vehicular.
+ * @param {number} tipoImagen - Tipo de imagen (1-6).
+ * @param {Object} imagen - Objeto con data (buffer), mimetype y name.
+ * @returns {Object} - Resultado con success y idImagen.
+ */
 async function guardarImagenRevista(idRV, tipoImagen, imagen) {
     try {
         const pool = await poolPromise;
-
-        // **Opción 1: Almacenar imagen en la base de datos como tipo image**
-        // Asumimos una tabla ImagenesRevista con columnas: IdImagen, IdRevistaVehicular, TipoImagen, Imagen (tipo image)
         const imagenBuffer = imagen.data; // Buffer de la imagen
 
-        await pool.request()
-            .input('IdRevistaVehicular', sql.BigInt, idRV)
-            .input('TipoImagen', sql.Int, parseInt(tipoImagen))
-            .input('Imagen', sql.Image, imagenBuffer)
-            .query(`
-                INSERT INTO ImagenesRevista (IdRevistaVehicular, TipoImagen, Imagen)
-                VALUES (@IdRevistaVehicular, @TipoImagen, @Imagen)
-            `);
+        const result = await pool.request()
+            .input('idRevistaVehicular', sql.BigInt, idRV)
+            .input('imagen', sql.Image, imagenBuffer)
+            .input('tipoImagen', sql.Int, parseInt(tipoImagen))
+            .execute('RV_InsertaImagenRevista');
 
-        return { success: true };
-
-        // **Opción 2: Almacenar imagen en el servidor y guardar la ruta**
-        // Descomenta y configura esta sección si el PM decide usar esta opción
-        /*
-        const fs = require('fs').promises;
-        const path = require('path');
-        const uploadDir = path.join(__dirname, '../uploads');
-        
-        // Crear directorio si no existe
-        await fs.mkdir(uploadDir, { recursive: true });
-        
-        // Generar nombre único para la imagen
-        const fileName = `${idRV}_${tipoImagen}_${Date.now()}_${imagen.name}`;
-        const uploadPath = path.join(uploadDir, fileName);
-        
-        // Guardar imagen en el servidor
-        await imagen.mv(uploadPath);
-        
-        // Insertar referencia en la base de datos
-        // Asumimos una tabla ImagenesRevista con columnas: IdImagen, IdRevistaVehicular, TipoImagen, Ruta, Imagen (tipo image para compatibilidad con sistema anterior)
-        await pool.request()
-            .input('IdRevistaVehicular', sql.BigInt, idRV)
-            .input('TipoImagen', sql.Int, parseInt(tipoImagen))
-            .input('Ruta', sql.NVarChar(255), uploadPath)
-            .query(`
-                INSERT INTO ImagenesRevista (IdRevistaVehicular, TipoImagen, Ruta)
-                VALUES (@IdRevistaVehicular, @TipoImagen, @Ruta)
-            `);
-        
-        return { success: true };
-        */
+        return {
+            success: true,
+            idImagen: result.recordset[0]?.[0] // SCOPE_IDENTITY() devuelve el ID
+        };
     } catch (err) {
         throw new Error('Error al guardar la imagen: ' + err.message);
     }
 }
 
-// Nueva función: Obtener imágenes de una inspección (opcional)
+/**
+ * Obtiene las imágenes asociadas a una inspección vehicular.
+ * @param {number} idRV - ID de la inspección vehicular.
+ * @param {number} [tipoImagen] - Tipo de imagen (opcional).
+ * @returns {Object} - Resultado con data (imágenes) y returnValue.
+ */
 async function obtenerImagenesRevista(idRV, tipoImagen) {
     try {
         const pool = await poolPromise;
@@ -917,7 +894,7 @@ async function obtenerImagenesRevista(idRV, tipoImagen) {
 
         // Convertir imágenes binarias a base64
         const mappedImagenes = imagenes.map(img => ({
-            IdImagen: img.IdImagen,
+            IdImagen: img.IdImagenRevistaVehicular,
             IdRevistaVehicular: img.IdRevistaVehicular,
             TipoImagen: img.TipoImagen,
             ImagenBase64: img.Imagen ? Buffer.from(img.Imagen, 'binary').toString('base64') : null,
@@ -933,6 +910,123 @@ async function obtenerImagenesRevista(idRV, tipoImagen) {
     }
 }
 
+/**
+ * Elimina una imagen asociada a una inspección vehicular usando el procedimiento RV_EliminarImagenRevistaVehicular.
+ * @param {number} idImagen - ID de la imagen a eliminar.
+ * @returns {Object} - Resultado con success.
+ */
+async function eliminarImagenRevista(idImagen) {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('IdImagenRevistaVehicular', sql.BigInt, idImagen)
+            .execute('RV_EliminarImagenRevistaVehicular');
+
+        if (result.rowsAffected[0] === 0) {
+            throw new Error('Imagen no encontrada');
+        }
+
+        return { success: true };
+    } catch (err) {
+        throw new Error('Error al eliminar la imagen: ' + err.message);
+    }
+}
+/**
+ * Obtiene los detalles de una inspección vehicular por su ID consultando directamente las tablas.
+ * @param {number} idRV - ID de la inspección vehicular.
+ * @returns {Object} - Resultado con data (detalles de la inspección) y returnValue.
+ */
+async function obtenerRevistaPorId(idRV) {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('IdRevistaVehicular', sql.BigInt, idRV)
+            .query(`
+                SELECT 
+                    rv.IdRevistaVehicular,
+                    rv.IdConsesion,
+                    rv.Inspector,
+                    DATEPART(DAY, rv.FechaInspeccion) AS DiaInspeccion,
+                    DATEPART(MONTH, rv.FechaInspeccion) AS MesInspeccion,
+                    DATEPART(YEAR, rv.FechaInspeccion) AS AnioInspeccion,
+                    prop.NombreCompletoNA,
+                    ISNULL(propInfo.Telefono, '') AS Telefono,
+                    ct.Tramite,
+                    cmun.Nombre AS Municipio,
+                    cmod.Modalidad,
+                    vehM.Marca,
+                    veh.NumeroMotor,
+                    veh.Anio AS Modelo,
+                    veh.NumeroSerie,
+                    rv.Placa AS PlacaAsignada,
+                    vehT.TipoVehiculo,
+                    vehS.SubMarca,
+                    cda.NombreAseguradora AS ciaAseguradora,
+                    cda.NumeroPoliza,
+                    cda.FechaVencimiento,
+                    rv.PlacaDelanteraVer AS PlacaDelantera,
+                    rv.PlacaTraseraVer AS PlacaTrasera,
+                    rv.CalcaVerificacionVer AS CalcaVerificacionVer,
+                    rv.CalcaTenenciaVer AS CalcaTenenciaVer,
+                    rv.PinturaCarroceriaVer AS PinturaCarroceriaVer,
+                    rv.EstadoLlantasVer AS EstadoLlantasVer,
+                    rv.DefensasVer AS DefensasVer,
+                    rv.VidriosVer AS VidriosVer,
+                    rv.LimpiadoresVer AS LimpiadoresVer,
+                    rv.EspejosVer AS EspejosVer,
+                    rv.LlantaRefaccionVer AS LlantaRefaccionVer,
+                    rv.ParabrisasMedallonVer AS ParabrisasMedallonVer,
+                    rv.ClaxonVer AS ClaxonVer,
+                    rv.LuzBajaVer AS LuzBajaVer,
+                    rv.LuzAltaVer AS LuzAltaVer,
+                    rv.CuartosVer AS CuartosVer,
+                    rv.DireccionalesVer AS DireccionalesVer,
+                    rv.IntermitentesVer AS IntermitentesVer,
+                    rv.StopVer AS StopVer,
+                    rv.TimbreVer AS TimbreVer,
+                    rv.EstinguidorVer AS EstinguidorVer,
+                    rv.HerramientaVer AS HerramientaVer,
+                    rv.SistemaFrenadoVer AS SistemaFrenadoVer,
+                    rv.SistemaDireccionVer AS SistemaDireccionVer,
+                    rv.SistemaSuspensionVer AS SistemaSuspensionVer,
+                    rv.InterioresVer AS InterioresVer,
+                    rv.BotiquinVer AS BotiquinVer,
+                    rv.CinturonSeguridadVer AS CinturonSeguridadVer,
+                    rv.Observaciones,
+                    rv.Aprobado AS Aprobado,
+                    rv.ImagenCromaticaVer AS ImagenCromaticaVer
+                FROM dbo.RevistaVehicular AS rv 
+                INNER JOIN Catalogo.Tramite AS ct ON rv.IdTramite = ct.IdTramite 
+                INNER JOIN Concesion.Concesion AS cc ON rv.IdConsesion = cc.IdConcesion 
+                INNER JOIN Concesion.DatosAseguradora AS cda ON cc.IdConcesion = cda.IdConcesion 
+                INNER JOIN Catalogo.Municipio AS cmun ON cc.IdMunicipioAutorizado = cmun.IdMunicipio 
+                    AND cc.IdEstadoExpedicion = cmun.IdEstado 
+                INNER JOIN Concesion.Modalidad AS cmod ON cc.IdModalidad = cmod.IdModalidad 
+                LEFT OUTER JOIN Concesion.Submodalidad AS csubmod ON cc.IdSubmodalidad = csubmod.IdSubmodalidad 
+                    AND LEN(csubmod.NumeroSubserie) > 0 
+                INNER JOIN Concesion.Servicio AS cser ON cc.IdServicio = cser.IdServicio 
+                INNER JOIN [${process.env.DB_VEHICLE_NAME}].dbo.Propietario AS prop ON prop.IdPropietario = cc.IdPropietario 
+                LEFT OUTER JOIN [${process.env.DB_VEHICLE_NAME}].Propietario.Direccion AS propInfo ON propInfo.IdPropietario = cc.IdPropietario 
+                INNER JOIN [${process.env.DB_VEHICLE_NAME}].dbo.Vehiculo AS veh ON veh.IdVehiculo = cc.IdVehiculo 
+                INNER JOIN [${process.env.DB_VEHICLE_NAME}].Vehiculo.Marca AS vehM ON vehM.IdMarca = veh.IdMarca 
+                INNER JOIN [${process.env.DB_VEHICLE_NAME}].Vehiculo.SubMarca AS vehS ON vehS.IdSubMarca = veh.IdSubMarca 
+                INNER JOIN [${process.env.DB_VEHICLE_NAME}].Vehiculo.Tipo AS vehT ON vehT.IdTipoVehiculo = veh.IdTipo 
+                    AND veh.IdClase = vehT.IdClase
+                WHERE rv.IdRevistaVehicular = @IdRevistaVehicular
+            `);
+
+        if (result.recordset.length === 0) {
+            return { data: null, returnValue: 0 };
+        }
+
+        return {
+            data: result.recordset[0],
+            returnValue: 1
+        };
+    } catch (err) {
+        throw new Error('Error al obtener la inspección: ' + err.message);
+    }
+}
 async function obtenerTiposImagen() {
     try {
         const pool = await poolPromise;
@@ -1264,6 +1358,8 @@ module.exports = {
     insertarRevista,
     guardarImagenRevista,
     obtenerImagenesRevista,
+    eliminarImagenRevista,
+    obtenerRevistaPorId,
     obtenerTiposImagen,
     obtenerVehiculoYAseguradora,
     generarReporte,

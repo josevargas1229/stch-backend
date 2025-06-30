@@ -9,8 +9,19 @@ const loginService = require('../services/loginService');
 const { logRequest, authenticateApiKeyOrSession } = require('../middlewares/middlewares');
 const fileUpload = require('express-fileupload');
 const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
 const sql = require('mssql');
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // Límite de 10MB
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = ['image/jpeg', 'image/png'];
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Solo se permiten imágenes JPG o PNG'), false);
+        }
+    }
+});
 router.use(logRequest);
 /**
  * Ruta para autenticar un usuario y establecer una sesión.
@@ -399,36 +410,53 @@ router.post('/revista', async (req, res) => {
  * @param {Object} req.body - Cuerpo de la solicitud con `idRV` y `tipoImagen`.
  * @returns {Object} Respuesta JSON con `success` y mensaje, o error 400/500.
  */
-router.post('/revista/imagen', async (req, res) => {
+router.post('/revista/imagen', upload.single('imagen'), async (req, res) => {
     try {
-        if (!req.files || !req.files.imagen) {
+        if (!req.file) {
             return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
         }
 
         const { idRV, tipoImagen } = req.body;
-        const imagen = req.files.imagen;
+        const imagen = req.file;
 
         // Validar tipo de imagen
         if (!tipoImagen || !['1', '2', '3', '4', '5', '6'].includes(tipoImagen)) {
-            return res.status(400).json({ error: 'Tipo de imagen inválido' });
-        }
-
-        // Validar formato de imagen
-        if (!imagen.mimetype.includes('image/jpeg')) {
-            return res.status(400).json({ error: 'Solo se permiten imágenes JPG' });
+            return res.status(400).json({ error: 'Tipo de imagen inválido. Debe ser 1, 2, 3, 4, 5 o 6' });
         }
 
         // Validar idRV
-        if (!idRV) {
-            return res.status(400).json({ error: 'Se requiere el ID de la inspección (idRV)' });
+        if (!idRV || isNaN(parseInt(idRV))) {
+            return res.status(400).json({ error: 'Se requiere un ID de inspección (idRV) válido' });
         }
 
-        const result = await dbService.guardarImagenRevista(idRV, tipoImagen, imagen);
+        // Verificar si idRV existe en la base de datos
+        const pool = await require('../config/db');
+        const exists = await pool.request()
+            .input('idRV', sql.BigInt, parseInt(idRV))
+            .query('SELECT 1 FROM [dbo].[RevistaVehicular] WHERE IdRevistaVehicular = @idRV');
+        if (exists.recordset.length === 0) {
+            return res.status(404).json({ error: 'Inspección no encontrada' });
+        }
+
+        // Preparar objeto imagen para dbService
+        const imagenObj = {
+            data: imagen.buffer,
+            mimetype: imagen.mimetype,
+            name: imagen.originalname
+        };
+
+        const result = await dbService.guardarImagenRevista(idRV, tipoImagen, imagenObj);
 
         res.json({ success: true, message: 'Imagen subida correctamente' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error al subir la imagen' });
+        console.error('Error en /revista/imagen:', err);
+        if (err.message.includes('Solo se permiten imágenes JPG o PNG')) {
+            return res.status(400).json({ error: err.message });
+        }
+        if (err.message.includes('Inspección no encontrada')) {
+            return res.status(404).json({ error: err.message });
+        }
+        res.status(500).json({ error: 'Error interno al procesar la imagen' });
     }
 });
 
@@ -454,6 +482,43 @@ router.get('/revista/:idRV/imagenes', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Error al obtener las imágenes' });
+    }
+});
+/**
+ * Ruta para eliminar una imagen asociada a una inspección vehicular.
+ * @name DELETE /revista/imagen/:idImagen
+ * @function
+ * @param {Object} req.params - Parámetros de ruta.
+ * @param {string} req.params.idImagen - ID de la imagen a eliminar.
+ * @returns {Object} Respuesta JSON con `success` y `message`, o error 400/404/500.
+ */
+router.delete('/revista/imagen/:idImagen', async (req, res) => {
+    try {
+        const { idImagen } = req.params;
+
+        // Validar idImagen
+        if (!idImagen || isNaN(parseInt(idImagen))) {
+            return res.status(400).json({ error: 'Se requiere un ID de imagen válido' });
+        }
+
+        // Verificar si la imagen existe
+        const pool = await require('../config/db');
+        const exists = await pool.request()
+            .input('IdImagenRevistaVehicular', sql.BigInt, parseInt(idImagen))
+            .query('SELECT 1 FROM RevistaVehicular.Imagen WHERE IdImagenRevistaVehicular = @IdImagenRevistaVehicular');
+        if (exists.recordset.length === 0) {
+            return res.status(404).json({ error: 'Imagen no encontrada' });
+        }
+
+        const result = await dbService.eliminarImagenRevista(idImagen);
+
+        res.json({ success: true, message: 'Imagen eliminada correctamente' });
+    } catch (err) {
+        console.error('Error en /revista/imagen/:idImagen:', err);
+        if (err.message.includes('Imagen no encontrada')) {
+            return res.status(404).json({ error: err.message });
+        }
+        res.status(500).json({ error: 'Error interno al eliminar la imagen' });
     }
 });
 /**
@@ -686,6 +751,34 @@ router.get('/revista/buscar', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Error al buscar revistas vehiculares' });
+    }
+});
+/**
+ * Ruta para obtener los detalles de una inspección vehicular por su ID.
+ * @name GET /revista/:idRV
+ * @function
+ * @param {Object} req.params - Parámetros de ruta.
+ * @param {string} req.params.idRV - ID de la inspección vehicular.
+ * @returns {Object} Respuesta JSON con `data` (detalles de la inspección) y `returnValue`, o error 400/404/500.
+ */
+router.get('/revista/:idRV', async (req, res) => {
+    try {
+        const { idRV } = req.params;
+
+        // Validar idRV
+        if (!idRV || isNaN(parseInt(idRV))) {
+            return res.status(400).json({ error: 'Se requiere un ID de inspección (idRV) válido' });
+        }
+
+        const result = await dbService.obtenerRevistaPorId(idRV);
+        if (!result.data) {
+            return res.status(404).json({ message: 'Inspección no encontrada', returnValue: result.returnValue });
+        }
+
+        res.json(result);
+    } catch (err) {
+        console.error('Error en /revista/:idRV:', err);
+        res.status(500).json({ error: 'Error al obtener la inspección' });
     }
 });
 module.exports = router;
