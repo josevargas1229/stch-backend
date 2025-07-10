@@ -404,16 +404,18 @@ const headers = [
         }
 
         // Título
-        worksheet.addRow(['Reporte de Inspecciones Vehiculares']);
-        worksheet.getRow(logoBase64 ? 2 : 1).font = { bold: true, size: 14 };
-        worksheet.getRow(logoBase64 ? 2 : 1).alignment = { horizontal: 'center' };
-        worksheet.getRow(logoBase64 ? 2 : 1).height = 20;
+        const titleRow = 1;
+        const titleColStart = logoBase64 ? 2 : 1;
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${titleRow}`).value = 'Reporte de inspecciones vehiculares';
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${titleRow}`).font = { bold: true, size: 14 };
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${titleRow}`).alignment = { horizontal: 'left' };
 
         // Rango de fechas
-        worksheet.addRow([`Rango de fechas: ${fechaInicio} - ${fechaFin}`]);
-        worksheet.getRow(logoBase64 ? 3 : 2).font = { italic: true };
-        worksheet.getRow(logoBase64 ? 3 : 2).alignment = { horizontal: 'center' };
-        worksheet.getRow(logoBase64 ? 3 : 2).height = 15;
+        const dateRow =  2; 
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).value = `Rango de fechas: ${fechaInicio} - ${fechaFin}`;
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).font = { italic: true };
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).alignment = { horizontal: 'left' };
+        worksheet.getRow(dateRow).height = 1
 
         // Espacio
         worksheet.addRow([]);
@@ -483,19 +485,21 @@ const headers = [
         if (req.file) {
             logoBase64 = `data:image/${req.file.mimetype.split('/')[1]};base64,${req.file.buffer.toString('base64')}`;
         }
+        const headerY = 10;
+        const logoWidth = 50;
+        const logoHeight = 30;
 
         if (logoBase64) {
-            const logoData = logoBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
-            doc.addImage(logoData, req.file.mimetype.split('/')[1].toUpperCase(), 10, 10, 30, 15);
+        const logoData = logoBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
+            doc.addImage(logoData, req.file.mimetype.split('/')[1].toUpperCase(), 10, headerY, logoWidth, logoHeight);
         }
-
         // Título
+        const textX = doc.internal.pageSize.width / 2 - (logoBase64 ? logoWidth / 2 : 0) - 10;
         doc.setFontSize(16);
-        doc.text('Reporte de Inspecciones Vehiculares', doc.internal.pageSize.width / 2, logoBase64 ? 30 : 20, { align: 'center' });
-
+        doc.text('Reporte de inspecciones vehiculares', textX, headerY + 5); // Ajuste Y para centrar verticalmente con el logo
         // Rango de fechas
         doc.setFontSize(12);
-        doc.text(`Rango de fechas: ${fechaInicio} - ${fechaFin}`, doc.internal.pageSize.width / 2, logoBase64 ? 40 : 30, { align: 'center' });
+        doc.text(`Fechas: ${fechaInicio} - ${fechaFin}`, textX, headerY + 15); // Debajo del título, en la misma "línea"
 
         // Preparar datos para la tabla
         const tableData = result.data.map(item => [
@@ -523,7 +527,7 @@ const headers = [
                 1: { cellWidth: 25 },
                 2: { cellWidth: 20 },
                 3: { cellWidth: 20 },
-                4: { cellWidth: 50 },
+                4: { cellWidth: 47 },
                 5: { cellWidth: 30 },
                 6: { cellWidth: 30 },
                 7: { cellWidth: 30 },
