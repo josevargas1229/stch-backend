@@ -708,6 +708,7 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
         userRequest.input('UserID', sql.Int, req.session.userId || 0);
         const userResult = await userRequest.query(`
             SELECT 
+                u.UserID,
                 p.ProfileID,
                 COALESCE(sc.SmartCardID, 0) AS SmartCardID,
                 COALESCE(ud.DelegationID, 0) AS DelegationID
@@ -718,16 +719,11 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
             WHERE u.UserID = @UserID
         `);
         const userData = userResult.recordset[0] || {};
-
         // Agregar datos de usuario a seguroData
         seguroData.idConcesion = idConcesionInt;
-        seguroData.idUsuario = req.session.userId || 0;
-        seguroData.idPerfil = userData.ProfileID || 0;
-        seguroData.idSmartCard = userData.SmartCardID || 0;
-        seguroData.idDelegacion = userData.DelegationID || 0;
 
         // Ejecutar la modificación
-        const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData);
+        const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData, userData);
         res.json({
             idVehiculo: result.idVehiculo,
             returnValue: result.returnValue,
