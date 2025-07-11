@@ -25,6 +25,7 @@ const dbConfig = {
     password: process.env.DB_PASSWORD_USERS,
     server: process.env.DB_SERVER_USERS,
     database: process.env.DB_USERS_NAME,
+    port: process.env.PORT_DB_USERS || 1433,
     options: {
         encrypt: false,
         trustServerCertificate: true
