@@ -22,6 +22,11 @@ const dbConfig = {
     server: process.env.DB_SERVER,
     database: process.env.DB_NAME,
     port: parseInt(process.env.PORT_DB || 1433),
+    pool: {
+        max: 10, // Máximo de conexiones en el pool
+        min: 0,  // Mínimo de conexiones en el pool
+        idleTimeoutMillis: 30000 // Tiempo de inactividad antes de cerrar una conexión
+    },
     options: {
         encrypt: false,
         trustServerCertificate: true
