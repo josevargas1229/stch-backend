@@ -13,9 +13,21 @@ const { generalLimiter, strictLimiter } = require('./src/config/rateLimit');
 const cookieParser = require('cookie-parser');
 const { generateCsrfToken, doubleCsrfProtection } = require('./src/config/csrf');
 require('dotenv').config();
+const morgan = require('morgan');
 
 /** @type {express.Application} Inicializa la aplicación Express */
 const app = express();
+app.use(morgan((tokens, req, res) => {
+    return [
+        tokens.method(req, res),
+        tokens.url(req, res),
+        tokens.status(req, res),
+        tokens.res(req, res, 'content-length'), '-',
+        tokens['response-time'](req, res), 'ms'
+    ].join(' ')
+}));
+
+// Rutas de eje
 
 /** @type {number|string} Puerto del servidor, obtenido de variables de entorno o predeterminado a 3000 */
 const port = process.env.PORT || 3000;

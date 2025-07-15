@@ -76,7 +76,28 @@ async function obtenerConcesionPorId(idConcesion) {
         throw new Error(`Error al ejecutar ConcesionObtenerPorId: ${err.message}`);
     }
 }
-
+/**
+ * Obtiene los detalles de una concesión por su folio.
+ * @async
+ * @function obtenerConcesionPorFolio
+ * @param {string} folio - El folio de la concesión.
+ * @returns {Promise<Object>} Objeto con `data` (detalles de la concesión) y `returnValue` (código de retorno).
+ * @throws {Error} Si falla la ejecución del procedimiento.
+ */
+async function obtenerConcesionPorFolio(folio) {
+    try {
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('folioConcesion', sql.NVarChar, folio);
+        const result = await request.execute('ConcesionObtenerPorFolio');
+        return {
+            data: result.recordset[0] || null,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error(`Error al ejecutar ConcesionObtenerPorFolio: ${err.message}`);
+    }
+}
 /**
  * Busca concesiones por folio y/o la serie de la placa.
  * @async
@@ -330,46 +351,84 @@ async function obtenerReporteInspecciones(fechaInicio, fechaFin, page, pageSize,
  * @param {File} [req.file] - Archivo del logo (opcional para POST).
  * @returns {void}
  */
+
+/**
+ * Genera el reporte en el formato solicitado.
+ * @async
+ * @function generarReporte
+ * @param {Object} req - Objeto de solicitud.
+ * @param {Object} res - Objeto de respuesta.
+ * @param {File} [req.file] - Archivo del logo (opcional para POST).
+ * @returns {void}
+ */
 async function generarReporte(req, res) {
-    const { fechaInicio, fechaFin, page = '1', format = 'json', allPages = 'false' } =  req.query;
+    const { fechaInicio, fechaFin, page = '1', format, allPages = 'false' } = req.query;
+
+    console.log('Parámetros recibidos:', { fechaInicio, fechaFin, page, format, allPages });
+
+    // Permitir fechas en formato DD/MM/YYYY o YYYY-MM-DD
+    const isDDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/.test(fechaInicio) && /^\d{2}\/\d{2}\/\d{4}$/.test(fechaFin);
+    const isYYYYMMDD = /^\d{4}-\d{2}-\d{2}$/.test(fechaInicio) && /^\d{4}-\d{2}-\d{2}$/.test(fechaFin);
 
     if (!fechaInicio || !fechaFin) {
+        console.log('Error: Faltan fechas');
         return res.status(400).json({ error: 'Se requieren fechaInicio y fechaFin' });
     }
 
-    const dateRegex = /^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
-    if (!dateRegex.test(fechaInicio) || !dateRegex.test(fechaFin)) {
-        return res.status(400).json({ error: 'Las fechas deben estar en formato DD/MM/YYYY' });
+    if (!isDDMMYYYY && !isYYYYMMDD) {
+        console.log('Error: Formato de fecha inválido');
+        return res.status(400).json({ error: 'Las fechas deben estar en formato DD/MM/YYYY o YYYY-MM-DD' });
     }
 
     const pageNumber = parseInt(page, 10);
     if (isNaN(pageNumber) || pageNumber < 1) {
+        console.log('Error: page inválido');
         return res.status(400).json({ error: 'El parámetro page debe ser un entero positivo' });
     }
 
     if (!['json', 'excel', 'pdf'].includes(format)) {
+        console.log('Error: Formato inválido');
         return res.status(400).json({ error: 'Formato inválido. Use json, excel o pdf' });
     }
 
     const exportAllPages = allPages.toLowerCase() === 'true';
 
-    const convertDateFormat = (date) => {
-        const [day, month, year] = date.split('/');
-        return `${month}/${day}/${year}`;
-    };
-    const fechaInicioConverted = convertDateFormat(fechaInicio);
-    const fechaFinConverted = convertDateFormat(fechaFin);
+    // Convertir fechas a MM/DD/YYYY para la función interna
+    function toMMDDYYYY(dateStr) {
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+            // DD/MM/YYYY -> MM/DD/YYYY
+            const [day, month, year] = dateStr.split('/');
+            return `${month}/${day}/${year}`;
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            // YYYY-MM-DD -> MM/DD/YYYY
+            const [year, month, day] = dateStr.split('-');
+            return `${month}/${day}/${year}`;
+        }
+        return dateStr;
+    }
+    const fechaInicioConverted = toMMDDYYYY(fechaInicio);
+    const fechaFinConverted = toMMDDYYYY(fechaFin);
+
+    console.log('Fechas convertidas:', { fechaInicioConverted, fechaFinConverted });
 
     const pageSize = 20;
-    const result = await obtenerReporteInspecciones(
-        fechaInicioConverted,
-        fechaFinConverted,
-        pageNumber,
-        pageSize,
-        exportAllPages && format !== 'json'
-    );
+    let result;
+    try {
+        result = await obtenerReporteInspecciones(
+            fechaInicioConverted,
+            fechaFinConverted,
+            pageNumber,
+            pageSize,
+            exportAllPages && format !== 'json'
+        );
+    } catch (err) {
+        console.error('Error en obtenerReporteInspecciones:', err);
+        return res.status(500).json({ error: 'Error interno al obtener el reporte' });
+    }
 
     if (!result.data || result.data.length === 0) {
+        console.log('No se encontraron inspecciones');
         return res.status(404).json({
             message: 'No se encontraron inspecciones',
             totalRecords: 0,
@@ -377,10 +436,12 @@ async function generarReporte(req, res) {
             returnValue: result.returnValue
         });
     }
-const headers = [
-    'ID Revista', 'Fecha Inspección', 'ID Concesión', 'Trámite', 'Concesionario',
-    'Modalidad', 'Municipio', 'Inspector', 'Observaciones'
-];
+
+    const headers = [
+        'ID Revista', 'Fecha Inspección', 'ID Concesión', 'Trámite', 'Concesionario',
+        'Modalidad', 'Municipio', 'Inspector', 'Observaciones'
+    ];
+
     // Exportar a Excel
     if (format === 'excel') {
         const workbook = new ExcelJS.Workbook();
@@ -403,25 +464,19 @@ const headers = [
             });
         }
 
-        // Título
-        const titleRow = 1;
-        const titleColStart = logoBase64 ? 2 : 1;
-        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${titleRow}`).value = 'Reporte de inspecciones vehiculares';
-        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${titleRow}`).font = { bold: true, size: 14 };
-        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${titleRow}`).alignment = { horizontal: 'left' };
+        worksheet.addRow(['Reporte de Inspecciones Vehiculares']);
+        worksheet.getRow(logoBase64 ? 2 : 1).font = { bold: true, size: 14 };
+        worksheet.getRow(logoBase64 ? 2 : 1).alignment = { horizontal: 'center' };
+        worksheet.getRow(logoBase64 ? 2 : 1).height = 20;
 
-        // Rango de fechas
-        const dateRow =  2; 
-        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).value = `Rango de fechas: ${fechaInicio} - ${fechaFin}`;
-        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).font = { italic: true };
-        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).alignment = { horizontal: 'left' };
-        worksheet.getRow(dateRow).height = 1
+        worksheet.addRow([`Rango de fechas: ${fechaInicio} - ${fechaFin}`]);
+        worksheet.getRow(logoBase64 ? 3 : 2).font = { italic: true };
+        worksheet.getRow(logoBase64 ? 3 : 2).alignment = { horizontal: 'center' };
+        worksheet.getRow(logoBase64 ? 3 : 2).height = 15;
 
-        // Espacio
         worksheet.addRow([]);
         worksheet.getRow(logoBase64 ? 4 : 3).height = 5;
 
-        // Encabezados manuales
         const headerRow = worksheet.addRow(headers);
         headerRow.font = { bold: true };
         headerRow.fill = {
@@ -438,7 +493,6 @@ const headers = [
         };
         worksheet.getRow(logoBase64 ? 5 : 4).height = 25;
 
-        // Definir columnas solo para claves y anchos
         worksheet.columns = [
             { key: 'IdRevistaVehicular', width: 15 },
             { key: 'FechaInspeccion', width: 20 },
@@ -451,7 +505,6 @@ const headers = [
             { key: 'Observaciones', width: 30 },
         ];
 
-        // Agregar datos con formato
         const dataRows = worksheet.addRows(result.data);
         dataRows.forEach((row, index) => {
             const excelRow = worksheet.getRow(logoBase64 ? index + 6 : index + 5);
@@ -464,12 +517,12 @@ const headers = [
             excelRow.alignment = { horizontal: 'left' };
         });
 
-        // Pie de página
         worksheet.headerFooter.oddFooter = '&LGenerated on &D&RPage &P of &N';
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename=Reporte_Inspecciones.xlsx');
         await workbook.xlsx.write(res);
+        console.log('Excel generado y enviado');
         return res.end();
     }
 
@@ -480,28 +533,22 @@ const headers = [
         const doc = new jsPDF({ orientation: 'landscape' });
         const maxTextLength = 50;
 
-        // Agregar logo si está presente (solo para POST)
         let logoBase64 = null;
         if (req.file) {
             logoBase64 = `data:image/${req.file.mimetype.split('/')[1]};base64,${req.file.buffer.toString('base64')}`;
         }
-        const headerY = 10;
-        const logoWidth = 50;
-        const logoHeight = 30;
 
         if (logoBase64) {
-        const logoData = logoBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
-            doc.addImage(logoData, req.file.mimetype.split('/')[1].toUpperCase(), 10, headerY, logoWidth, logoHeight);
+            const logoData = logoBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
+            doc.addImage(logoData, req.file.mimetype.split('/')[1].toUpperCase(), 10, 10, 30, 15);
         }
-        // Título
-        const textX = doc.internal.pageSize.width / 2 - (logoBase64 ? logoWidth / 2 : 0) - 10;
-        doc.setFontSize(16);
-        doc.text('Reporte de inspecciones vehiculares', textX, headerY + 5); // Ajuste Y para centrar verticalmente con el logo
-        // Rango de fechas
-        doc.setFontSize(12);
-        doc.text(`Fechas: ${fechaInicio} - ${fechaFin}`, textX, headerY + 15); // Debajo del título, en la misma "línea"
 
-        // Preparar datos para la tabla
+        doc.setFontSize(16);
+        doc.text('Reporte de Inspecciones Vehiculares', doc.internal.pageSize.width / 2, logoBase64 ? 30 : 20, { align: 'center' });
+
+        doc.setFontSize(12);
+        doc.text(`Rango de fechas: ${fechaInicio} - ${fechaFin}`, doc.internal.pageSize.width / 2, logoBase64 ? 40 : 30, { align: 'center' });
+
         const tableData = result.data.map(item => [
             item.IdRevistaVehicular,
             item.FechaInspeccion,
@@ -514,7 +561,6 @@ const headers = [
             (item.Observaciones || '').substring(0, maxTextLength) + ((item.Observaciones || '').length > maxTextLength ? '...' : '')
         ]);
 
-        // Generar tabla
         autoTable(doc, {
             head: [headers],
             body: tableData,
@@ -527,7 +573,7 @@ const headers = [
                 1: { cellWidth: 25 },
                 2: { cellWidth: 20 },
                 3: { cellWidth: 20 },
-                4: { cellWidth: 47 },
+                4: { cellWidth: 50 },
                 5: { cellWidth: 30 },
                 6: { cellWidth: 30 },
                 7: { cellWidth: 30 },
@@ -542,12 +588,15 @@ const headers = [
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename=Reporte_Inspecciones.pdf');
         res.send(Buffer.from(doc.output('arraybuffer')));
+        console.log('PDF generado y enviado');
         return;
     }
 
     // Respuesta JSON por defecto
+    console.log('Respuesta JSON enviada');
     res.json(result);
 }
+
 /**
  * Obtiene los detalles de un concesionario por su ID.
  * @async
@@ -776,16 +825,16 @@ async function obtenerInformacionCompletaPorConcesion(idConcesion) {
  * @throws {Error} Si ocurre un error al ejecutar el procedimiento, con el mensaje "Error al obtener tipos de trámite: [mensaje de error]".
  */
 async function obtenerTiposTramite() {
-        try {
-            const pool = await poolPromise;
-            const result = await pool.request().execute('RV_ObtenerTipoTramite');
-            return {
-                data: result.recordset,
-                returnValue: result.returnValue
-            };
-        } catch (err) {
-            throw new Error('Error al obtener tipos de trámite: ' + err.message);
-        }
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request().execute('RV_ObtenerTipoTramite');
+        return {
+            data: result.recordset,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error('Error al obtener tipos de trámite: ' + err.message);
+    }
 }
 
 /**
@@ -1402,7 +1451,7 @@ async function obtenerTiposVehiculo() {
             data: result.recordset,
             returnValue: result.returnValue
         };
-        } catch (err) {
+    } catch (err) {
         throw new Error(`Error al ejecutar CV_ObtenerTipoVehiculo: ${err.message}`);
     }
 }
@@ -1606,8 +1655,10 @@ async function imprimirRevista(idRV, idUsuario, folio = '') {
     }
 }
 module.exports = {
+    // obtenerEstatusVehiculo,
     obtenerInformacionCompletaPorConcesion,
     obtenerConcesionPorId,
+    obtenerConcesionPorFolio,
     obtenerConcesionPorFolioPlaca,
     obtenerConcesionarioPorId,
     obtenerConcesionariosPorNombre,
