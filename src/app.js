@@ -5,6 +5,7 @@
  */
 
 const express = require('express');
+const morgan = require('morgan');
 const session = require('express-session');
 const apiRoutes = require('./routes/api');
 const corsConfig = require('./config/cors');
@@ -22,6 +23,9 @@ const port = process.env.PORT || 3000;
 
 // Deshabilitar encabezado x-powered-by para reducir la exposición de información del servidor
 app.disable('x-powered-by');
+
+// Formato predefinido (ej: 'combined', 'dev', 'tiny')
+app.use(morgan('dev')); // Muestra logs concisos en desarrollo
 
 // Middleware
 app.use(corsConfig); // Configuración de CORS para permitir orígenes específicos

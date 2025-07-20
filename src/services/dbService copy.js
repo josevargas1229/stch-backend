@@ -353,7 +353,8 @@ async function obtenerReporteInspecciones(fechaInicio, fechaFin, page, pageSize,
  * @param {File} [req.file] - Archivo del logo (opcional para POST).
  * @returns {void}
  */
-async function generarReporte(req, res) {     const { fechaInicio, fechaFin, page = '1', format, allPages = 'false' } = req.query;
+async function generarReporte(req, res) {
+    const { fechaInicio, fechaFin, page = '1', format, allPages = 'false' } = req.query;
 
     console.log('Parámetros recibidos:', { fechaInicio, fechaFin, page, format, allPages });
 
@@ -1197,176 +1198,75 @@ async function obtenerVehiculoYAseguradora(idConcesion, idVehiculo) {
  * @returns {Promise<Object>} Objeto con `idVehiculo` (ID del vehículo modificado) y `returnValue`.
  * @throws {Error} Si falla la ejecución de los procedimientos.
  */
-// async function modificarVehiculoYAseguradora(vehiculoData, seguroData) {
-//     try {
-//         // Modificar vehículo usando poolVehiclePromise
-//         const poolVehicle = await poolVehiclePromise;
-//         const vehicleRequest = poolVehicle.request();
-//         vehicleRequest.input('Anio', sql.Int, vehiculoData.Modelo);
-//         vehicleRequest.input('NumeroPasajeros', sql.Int, vehiculoData.NumeroPasajeros);
-//         vehicleRequest.input('Capacidad', sql.VarChar(15), vehiculoData.Capacidad);
-//         vehicleRequest.input('Cilindros', sql.Int, vehiculoData.Cilindros);
-//         vehicleRequest.input('Clase', sql.VarChar(50), vehiculoData.Clase);
-//         vehicleRequest.input('ClaveVehicular', sql.VarChar(50), vehiculoData.ClaveVehicular);
-//         vehicleRequest.input('Color', sql.VarChar(50), vehiculoData.Color);
-//         vehicleRequest.input('Combustible', sql.VarChar(50), vehiculoData.Combustible);
-//         vehicleRequest.input('servicio', sql.VarChar(100), vehiculoData.servicio);
-//         vehicleRequest.input('IdVersion', sql.Int, vehiculoData.IdVersion);//me falta agregar la version en select
-//         vehicleRequest.input('Marca', sql.VarChar(50), vehiculoData.Marca);
-//         vehicleRequest.input('NRPV', sql.VarChar(20), vehiculoData.NRPV);
-//         vehicleRequest.input('NumeroMotor', sql.VarChar(50), vehiculoData.NumeroMotor);
-//         vehicleRequest.input('NumeroPuertas', sql.Int, vehiculoData.NumeroPuertas);
-//         vehicleRequest.input('NumeroSerie', sql.VarChar(50), vehiculoData.NumeroSerie);
-//         vehicleRequest.input('Origen', sql.VarChar(50), vehiculoData.Origen);
-//         vehicleRequest.input('PlacaAnterior', sql.VarChar(20), vehiculoData.PlacaAnterior);
-//         vehicleRequest.input('PlacaAsignada', sql.VarChar(20), vehiculoData.PlacaAsignada);
-//         vehicleRequest.input('RFV', sql.VarChar(50), vehiculoData.RFV);
-//         vehicleRequest.input('Submarca', sql.VarChar(50), vehiculoData.Submarca);
-//         vehicleRequest.input('Tipo', sql.VarChar(50), vehiculoData.Tipo);
-//         vehicleRequest.input('Uso', sql.VarChar(50), vehiculoData.Uso);
-//         vehicleRequest.input('Version', sql.VarChar(50), vehiculoData.Version);
-//         vehicleRequest.input('IdTipoPlaca', sql.Int, vehiculoData.IdTipoPlaca);
-//         vehicleRequest.input('NumeroToneladas', sql.VarChar(10), vehiculoData.NumeroToneladas);
-//         vehicleRequest.input('idPropietario', sql.Int, vehiculoData.idPropietario);
-
-//         const vehicleResult = await vehicleRequest.execute('CV_ModificarVehiculo');
-//         const idVehiculo = vehicleResult.recordset[0]?.[''];
-
-//         // Modificar o insertar aseguradora usando poolPromise
-//         const pool = await poolPromise;
-//         const insuranceRequest = pool.request();
-//         insuranceRequest.input('idConcesion', sql.Int, seguroData.idConcesion);
-//         insuranceRequest.input('nombre', sql.VarChar(150), seguroData.nombre);
-//         insuranceRequest.input('numeroPoliza', sql.VarChar(50), seguroData.numeroPoliza);
-//         insuranceRequest.input('fechaExp', sql.Date, seguroData.fechaExp);
-//         insuranceRequest.input('fechaVence', sql.Date, seguroData.fechaVence);
-//         insuranceRequest.input('folioPago', sql.VarChar(50), seguroData.folioPago);
-//         insuranceRequest.input('observaciones', sql.VarChar(5000), seguroData.observaciones);
-//         insuranceRequest.input('idUsuario', sql.Int, seguroData.idUsuario || 0);
-//         insuranceRequest.input('idPerfil', sql.Int, seguroData.idPerfil || 0);
-//         insuranceRequest.input('idSmartCard', sql.Int, seguroData.idSmartCard || 0);
-//         insuranceRequest.input('idDelegacion', sql.TinyInt, seguroData.idDelegacion || 0);
-
-//         await insuranceRequest.execute('AseguradoraInsertar');
-
-//         return {
-//             idVehiculo,
-//             returnValue: 0
-//         };
-//     } catch (err) {
-//         console.error('🔥 Error detallado:', {
-//             message: err.message,
-//             stack: err.stack,
-//             sqlError: err.originalError?.info?.message,
-//             params: {
-//                 vehiculo: vehiculoData,
-//                 seguro: seguroData
-//             }
-//         });
-//         throw new Error(`Error al modificar vehículo y aseguradora: ${err.message}`);
-//     }
-// }
 async function modificarVehiculoYAseguradora(vehiculoData, seguroData) {
-  try {
-    // 🔄 Transformar nombres del frontend al formato que espera el backend
-    const vehiculo = {
-      Anio: parseInt(vehiculoData.Modelo) || 0,
-      NumeroPasajeros: parseInt(vehiculoData.NumeroPasajeros) || 0,
-      Capacidad: vehiculoData.Capacidad || "",
-      Cilindros: parseInt(vehiculoData.Cilindros) || 0,
-      Clase: vehiculoData.Clase || "",
-      ClaveVehicular: vehiculoData.ClaveVehicular || "",
-      Color: vehiculoData.Color || "",
-      Combustible: vehiculoData.Combustible || "",
-      servicio: vehiculoData.servicio || "",
-      IdVersion: parseInt(vehiculoData.IdVersion) || 0,
-      Marca: vehiculoData.Marca || "",
-      NRPV: vehiculoData.NRPV || "",
-      NumeroMotor: vehiculoData.NumeroMotor || "",
-      NumeroPuertas: parseInt(vehiculoData.NumeroPuertas) || 0,
-      NumeroSerie: vehiculoData.NumeroSerie || "",
-      Origen: vehiculoData.Origen || "",
-      PlacaAnterior: vehiculoData.PlacaAnterior || "",
-      PlacaAsignada: vehiculoData.PlacaAsignada || "",
-      RFV: vehiculoData.RFV || "",
-      Submarca: vehiculoData.Submarca || "",
-      Tipo: vehiculoData.Tipo || "",
-      Uso: vehiculoData.Uso || "",
-      Version: vehiculoData.Version || "",
-      IdTipoPlaca: parseInt(vehiculoData.IdTipoPlaca) || 0,
-      NumeroToneladas: vehiculoData.NumeroToneladas || "",
-      idPropietario: parseInt(vehiculoData.IdPropietario) || 0
-    };
+    try {
+        // Modificar vehículo usando poolVehiclePromise
+        const poolVehicle = await poolVehiclePromise;
+        const vehicleRequest = poolVehicle.request();
+        vehicleRequest.input('Anio', sql.Int, vehiculoData.Modelo);
+        vehicleRequest.input('NumeroPasajeros', sql.Int, vehiculoData.NumeroPasajeros);
+        vehicleRequest.input('Capacidad', sql.VarChar(15), vehiculoData.Capacidad);
+        vehicleRequest.input('Cilindros', sql.Int, vehiculoData.Cilindros);
+        vehicleRequest.input('Clase', sql.VarChar(50), vehiculoData.Clase);
+        vehicleRequest.input('ClaveVehicular', sql.VarChar(50), vehiculoData.ClaveVehicular);
+        vehicleRequest.input('Color', sql.VarChar(50), vehiculoData.Color);
+        vehicleRequest.input('Combustible', sql.VarChar(50), vehiculoData.Combustible);
+        vehicleRequest.input('servicio', sql.VarChar(100), vehiculoData.servicio);
+        vehicleRequest.input('IdVersion', sql.Int, vehiculoData.IdVersion);//me falta agregar la version en select
+        vehicleRequest.input('Marca', sql.VarChar(50), vehiculoData.Marca);
+        vehicleRequest.input('NRPV', sql.VarChar(20), vehiculoData.NRPV);
+        vehicleRequest.input('NumeroMotor', sql.VarChar(50), vehiculoData.NumeroMotor);
+        vehicleRequest.input('NumeroPuertas', sql.Int, vehiculoData.NumeroPuertas);
+        vehicleRequest.input('NumeroSerie', sql.VarChar(50), vehiculoData.NumeroSerie);
+        vehicleRequest.input('Origen', sql.VarChar(50), vehiculoData.Origen);
+        vehicleRequest.input('PlacaAnterior', sql.VarChar(20), vehiculoData.PlacaAnterior);
+        vehicleRequest.input('PlacaAsignada', sql.VarChar(20), vehiculoData.PlacaAsignada);
+        vehicleRequest.input('RFV', sql.VarChar(50), vehiculoData.RFV);
+        vehicleRequest.input('Submarca', sql.VarChar(50), vehiculoData.Submarca);
+        vehicleRequest.input('Tipo', sql.VarChar(50), vehiculoData.Tipo);
+        vehicleRequest.input('Uso', sql.VarChar(50), vehiculoData.Uso);
+        vehicleRequest.input('Version', sql.VarChar(50), vehiculoData.Version);
+        vehicleRequest.input('IdTipoPlaca', sql.Int, vehiculoData.IdTipoPlaca);
+        vehicleRequest.input('NumeroToneladas', sql.VarChar(10), vehiculoData.NumeroToneladas);
+        vehicleRequest.input('idPropietario', sql.Int, vehiculoData.idPropietario);
 
-    const poolVehicle = await poolVehiclePromise;
-    const vehicleRequest = poolVehicle.request();
+        const vehicleResult = await vehicleRequest.execute('CV_ModificarVehiculo');
+        const idVehiculo = vehicleResult.recordset[0]?.[''];
 
-    // Enviar los campos esperados por el SP
-    vehicleRequest.input('Anio', sql.Int, vehiculo.Anio);
-    vehicleRequest.input('NumeroPasajeros', sql.Int, vehiculo.NumeroPasajeros);
-    vehicleRequest.input('Capacidad', sql.VarChar(15), vehiculo.Capacidad);
-    vehicleRequest.input('Cilindros', sql.Int, vehiculo.Cilindros);
-    vehicleRequest.input('Clase', sql.VarChar(50), vehiculo.Clase);
-    vehicleRequest.input('ClaveVehicular', sql.VarChar(50), vehiculo.ClaveVehicular);
-    vehicleRequest.input('Color', sql.VarChar(50), vehiculo.Color);
-    vehicleRequest.input('Combustible', sql.VarChar(50), vehiculo.Combustible);
-    vehicleRequest.input('servicio', sql.VarChar(100), vehiculo.servicio);
-    vehicleRequest.input('IdVersion', sql.Int, vehiculo.IdVersion);
-    vehicleRequest.input('Marca', sql.VarChar(50), vehiculo.Marca);
-    vehicleRequest.input('NRPV', sql.VarChar(20), vehiculo.NRPV);
-    vehicleRequest.input('NumeroMotor', sql.VarChar(50), vehiculo.NumeroMotor);
-    vehicleRequest.input('NumeroPuertas', sql.Int, vehiculo.NumeroPuertas);
-    vehicleRequest.input('NumeroSerie', sql.VarChar(50), vehiculo.NumeroSerie);
-    vehicleRequest.input('Origen', sql.VarChar(50), vehiculo.Origen);
-    vehicleRequest.input('PlacaAnterior', sql.VarChar(20), vehiculo.PlacaAnterior);
-    vehicleRequest.input('PlacaAsignada', sql.VarChar(20), vehiculo.PlacaAsignada);
-    vehicleRequest.input('RFV', sql.VarChar(50), vehiculo.RFV);
-    vehicleRequest.input('Submarca', sql.VarChar(50), vehiculo.Submarca);
-    vehicleRequest.input('Tipo', sql.VarChar(50), vehiculo.Tipo);
-    vehicleRequest.input('Uso', sql.VarChar(50), vehiculo.Uso);
-    vehicleRequest.input('Version', sql.VarChar(50), vehiculo.Version);
-    vehicleRequest.input('IdTipoPlaca', sql.Int, vehiculo.IdTipoPlaca);
-    vehicleRequest.input('NumeroToneladas', sql.VarChar(10), vehiculo.NumeroToneladas);
-    vehicleRequest.input('idPropietario', sql.Int, vehiculo.idPropietario);
+        // Modificar o insertar aseguradora usando poolPromise
+        const pool = await poolPromise;
+        const insuranceRequest = pool.request();
+        insuranceRequest.input('idConcesion', sql.Int, seguroData.idConcesion);
+        insuranceRequest.input('nombre', sql.VarChar(150), seguroData.nombre);
+        insuranceRequest.input('numeroPoliza', sql.VarChar(50), seguroData.numeroPoliza);
+        insuranceRequest.input('fechaExp', sql.Date, seguroData.fechaExp);
+        insuranceRequest.input('fechaVence', sql.Date, seguroData.fechaVence);
+        insuranceRequest.input('folioPago', sql.VarChar(50), seguroData.folioPago);
+        insuranceRequest.input('observaciones', sql.VarChar(5000), seguroData.observaciones);
+        insuranceRequest.input('idUsuario', sql.Int, seguroData.idUsuario || 0);
+        insuranceRequest.input('idPerfil', sql.Int, seguroData.idPerfil || 0);
+        insuranceRequest.input('idSmartCard', sql.Int, seguroData.idSmartCard || 0);
+        insuranceRequest.input('idDelegacion', sql.TinyInt, seguroData.idDelegacion || 0);
 
-    const vehicleResult = await vehicleRequest.execute('CV_ModificarVehiculo');
-    const idVehiculo = vehicleResult.recordset[0]?.['IdVehiculo'] || 0;
+        await insuranceRequest.execute('AseguradoraInsertar');
 
-    // 👮 Modificar o insertar aseguradora
-    const pool = await poolPromise;
-    const insuranceRequest = pool.request();
-    insuranceRequest.input('idConcesion', sql.Int, seguroData.idConcesion);
-    insuranceRequest.input('nombre', sql.VarChar(150), seguroData.nombre);
-    insuranceRequest.input('numeroPoliza', sql.VarChar(50), seguroData.numeroPoliza);
-    insuranceRequest.input('fechaExp', sql.Date, seguroData.fechaExp);
-    insuranceRequest.input('fechaVence', sql.Date, seguroData.fechaVence);
-    insuranceRequest.input('folioPago', sql.VarChar(50), seguroData.folioPago);
-    insuranceRequest.input('observaciones', sql.VarChar(5000), seguroData.observaciones);
-    insuranceRequest.input('idUsuario', sql.Int, seguroData.idUsuario || 0);
-    insuranceRequest.input('idPerfil', sql.Int, seguroData.idPerfil || 0);
-    insuranceRequest.input('idSmartCard', sql.Int, seguroData.idSmartCard || 0);
-    insuranceRequest.input('idDelegacion', sql.TinyInt, seguroData.idDelegacion || 0);
-
-    await insuranceRequest.execute('AseguradoraInsertar');
-
-    return {
-      idVehiculo,
-      returnValue: 0
-    };
-  } catch (err) {
-    console.error('🔥 Error detallado:', {
-      message: err.message,
-      stack: err.stack,
-      sqlError: err.originalError?.info?.message,
-      params: {
-        vehiculo: vehiculoData,
-        seguro: seguroData
-      }
-    });
-    throw new Error(`Error al modificar vehículo y aseguradora: ${err.message}`);
-  }
+        return {
+            idVehiculo,
+            returnValue: 0
+        };
+    } catch (err) {
+        console.error('🔥 Error detallado:', {
+            message: err.message,
+            stack: err.stack,
+            sqlError: err.originalError?.info?.message,
+            params: {
+                vehiculo: vehiculoData,
+                seguro: seguroData
+            }
+        });
+        throw new Error(`Error al modificar vehículo y aseguradora: ${err.message}`);
+    }
 }
-
 /**
  * Obtiene la lista de clases de vehículos.
  * @async

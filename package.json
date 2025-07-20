@@ -27,6 +27,7 @@
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "mssql": "^11.0.1",
+    "morgan": "^1.10.0",
     "multer": "^2.0.1"
   },
   "devDependencies": {

@@ -6,6 +6,8 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/dbService');
 const loginService = require('../services/loginService');
+// const poolUsers = require('../config/dbUsers'); // Asume que ya tienes poolUsers configurado
+
 const { logRequest, authenticateApiKeyOrSession } = require('../middlewares/middlewares');
 const fileUpload = require('express-fileupload');
 const multer = require('multer');
@@ -64,6 +66,31 @@ router.use((req, res, next) => {
         return next();
     }
     return authenticateApiKeyOrSession(req, res, next);
+});
+
+/**
+ * Ruta para buscar concesiones solo por folio.
+ * @name GET /concesion/folio
+ * @function
+ * @param {Object} req.query - Objeto con parámetros de consulta.
+ * @param {string} req.query.folio - Folio de la concesión.
+ * @returns {Object} Respuesta JSON con `data` (concesiones) y `returnValue`, o error 400/404/500.
+ */
+router.get('/concesion/folio', async (req, res) => {
+    try {
+        const { folio } = req.query;
+        if (!folio) {
+            return res.status(400).json({ error: 'Se requiere el folio' });
+        }
+        const result = await dbService.obtenerConcesionPorFolio(folio);
+        if (!result.data) {
+            return res.status(404).json({ message: 'No se encontraron concesiones', returnValue: result.returnValue });
+        }
+        return res.status(200).json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al buscar concesiones por folio' });
+    }
 });
 
 /**
@@ -128,8 +155,11 @@ router.get('/concesion/autorizacion/:id', async (req, res) => {
 router.get('/concesion/titular', async (req, res) => {
     try {
         const { nombre, paterno, materno, page = 1, pageSize = 15 } = req.query;
+        // Validación modificada: solo falla si faltan TODOS los parámetros
         if (!nombre && !paterno && !materno) {
-            return res.status(400).json({ error: 'Se requiere al menos nombre, paterno o materno' });
+            return res.status(400).json({
+                error: 'Se requiere al menos uno de los siguientes parámetros: nombre, paterno o materno'
+            });
         }
         const result = await dbService.obtenerConcesionariosPorNombre(nombre, paterno, materno, parseInt(page), parseInt(pageSize));
         if (!result.data || result.data.length === 0) {
@@ -316,6 +346,7 @@ router.get('/revista/tipos-imagen', async (req, res) => {
  * @returns {Object} Respuesta JSON con `idRV` (ID de la inspección) y `success`, o error 400/500.
  */
 router.post('/revista', async (req, res) => {
+    console.log(req.body)
     try {
         const {
             idConcesion,
@@ -679,6 +710,8 @@ router.get('/vehiculo/versiones', async (req, res) => {
         res.status(500).json({ error: 'Error al obtener versiones de vehículos' });
     }
 });
+
+
 /**
  * Ruta para modificar los datos del vehículo y la aseguradora de una concesión.
  * @name PUT /concesion/:idConcesion/vehiculo/:idVehiculo
@@ -690,18 +723,217 @@ router.get('/vehiculo/versiones', async (req, res) => {
  * @param {Object} req.body.seguroData - Datos de la aseguradora.
  * @returns {Object} Respuesta JSON con `idVehiculo` y `returnValue`, o error 400/500.
  */
+// router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
+//     try {
+//         const { idConcesion, idVehiculo } = req.params;
+//         const { vehiculoData, seguroData } = req.body;
+//         // Mostrar lo que llega al endpoint
+//         console.log("🔵 Datos recibidos en la petición:");
+//         console.log("🟡 vehiculoData:", JSON.stringify(vehiculoData, null, 2));
+//         console.log("🟡 seguroData:", JSON.stringify(seguroData, null, 2));
+
+//         const idConcesionInt = parseInt(idConcesion);
+//         const idVehiculoInt = parseInt(idVehiculo);
+
+//         if (isNaN(idConcesionInt) || isNaN(idVehiculoInt)) {
+//             return res.status(400).json({ error: 'ID de concesión o vehículo inválido' });
+//         }
+
+//         const errores = [];
+
+//         // Modificamos validarCampo para aceptar campos opcionales
+//         const validarCampo = (obj, campo, tipoEsperado, origen = 'vehiculoData', esOpcional = false) => {
+//             const valor = obj[campo];
+//             const tipoReal = typeof valor;
+
+//             // Si el campo es opcional y está ausente (null, undefined, o cadena vacía)
+//             if (esOpcional && (valor === null || valor === undefined || valor === '')) {
+//                 console.log(`❕ Campo "${campo}" en ${origen} es opcional y no está presente.`);
+//                 return; // No se agrega error, el campo es opcional
+//             }
+
+//             // Si el campo es requerido y está ausente (null, undefined, o cadena vacía)
+//             if (!esOpcional && (valor === null || valor === undefined || valor === '')) {
+//                 console.error(`❌ Campo "${campo}" en ${origen} está vacío o es nulo/indefinido (campo requerido).`);
+//                 errores.push(`Campo "${campo}" está vacío o es nulo.`);
+//                 return;
+//             }
+
+//             const valido = tipoEsperado === 'number'
+//                 ? (tipoReal === 'number' || tipoReal === 'bigint') && !isNaN(valor)
+//                 : tipoReal === tipoEsperado;
+
+//             console.log(`✅ Campo "${campo}" en ${origen} — Esperado: ${tipoEsperado}, Recibido: ${tipoReal}, Valor: ${valor}`);
+
+//             if (!valido) {
+//                 console.error(`❌ Tipo incorrecto para "${campo}" en ${origen}. Esperado: ${tipoEsperado}, Recibido: ${tipoReal}`);
+//                 errores.push(`Campo "${campo}" tiene tipo incorrecto.`);
+//             }
+//         };
+
+//         // Definir los campos del vehículo y sus tipos esperados
+//         const camposVehiculo = {
+//             Anio: 'number',
+//             NumeroPasajeros: 'number',
+//             Capacidad: 'string',
+//             Cilindros: 'number', // Mantener aquí, pero se pasará 'esOpcional: true'
+//             Clase: 'string',
+//             ClaveVehicular: 'string',
+//             Color: 'string',
+//             Combustible: 'string',
+//             IdVersion: 'number',
+//             Marca: 'string',
+//             NRPV: 'string',
+//             NumeroMotor: 'string',
+//             NumeroPuertas: 'number',
+//             NumeroSerie: 'string',
+//             Origen: 'string',
+//             PlacaAnterior: 'string',
+//             PlacaAsignada: 'string',
+//             RFV: 'string',
+//             Submarca: 'string',
+//             Tipo: 'string',
+//             Uso: 'string',
+//             Version: 'string',
+//             IdTipoPlaca: 'number',
+//             NumeroToneladas: 'string',
+//             IdEstatus: 'number',
+//             // Si 'servicio' y 'idPropietario' son campos reales que esperas, agrégalos aquí con su tipo.
+//             // servicio: 'string', 
+//             // idPropietario: 'number',
+//         };
+
+//         // Lista de campos opcionales para vehiculoData
+//         const camposOpcionalesVehiculo = [
+//             'Cilindros',
+//             'Color',
+//             'Combustible',
+//             'NRPV',
+//             'Origen',
+//             'RFV',
+//             'Submarca',
+//             'Uso',
+//             'Version',
+//             'NumeroToneladas',
+//             // 'servicio', // Descomentar si realmente es un campo esperado y opcional
+//             // 'idPropietario' // Descomentar si realmente es un campo esperado y opcional
+//         ];
+
+//         for (const campo in camposVehiculo) {
+//             const esOpcional = camposOpcionalesVehiculo.includes(campo);
+//             validarCampo(vehiculoData, campo, camposVehiculo[campo], 'vehiculoData', esOpcional);
+//         }
+
+//         // Validar seguroData
+//         const camposSeguro = {
+//             nombre: 'string',
+//             numeroPoliza: 'string',
+//             fechaExp: 'string', // asumimos formato ISO
+//             fechaVence: 'string',
+//             folioPago: 'string',
+//             observaciones: 'string',
+//         };
+
+//         // Lista de campos opcionales para seguroData
+//         const camposOpcionalesSeguro = [
+//             'observaciones'
+//         ];
+
+//         for (const campo in camposSeguro) {
+//             const esOpcional = camposOpcionalesSeguro.includes(campo);
+//             validarCampo(seguroData, campo, camposSeguro[campo], 'seguroData', esOpcional);
+//         }
+
+//         if (errores.length > 0) {
+//             return res.status(400).json({
+//                 error: 'Validación fallida. Algunos campos no cumplen el formato esperado o son requeridos y están vacíos.',
+//                 detalles: errores
+//             });
+//         }
+
+//         // Obtener datos de usuario
+//         const poolUsers = await require('../config/dbUsers');
+//         const userRequest = poolUsers.request();
+//         userRequest.input('UserID', sql.Int, req.session.userId || 0);
+//         const userResult = await userRequest.query(`
+//             SELECT 
+//                 p.ProfileID,
+//                 COALESCE(sc.SmartCardID, 0) AS SmartCardID,
+//                 COALESCE(ud.DelegationID, 0) AS DelegationID
+//             FROM [dbo].[mUsers] u
+//             LEFT JOIN [dbo].[dUserProfiles] p ON u.UserID = p.UserID
+//             LEFT JOIN [dbo].[mSmartCards] sc ON u.UserID = sc.UserID
+//             LEFT JOIN [dbo].[UserDelegations] ud ON u.UserID = ud.UserID
+//             WHERE u.UserID = @UserID
+//         `);
+//         const userData = userResult.recordset[0] || {};
+
+//         seguroData.idConcesion = idConcesionInt;
+//         seguroData.idVehiculo = idVehiculoInt;
+//         seguroData.idUsuario = req.session.userId || 0;
+//         seguroData.idPerfil = userData.ProfileID || 0;
+//         seguroData.idSmartCard = userData.SmartCardID || 0;
+//         seguroData.idDelegacion = userData.DelegationID || 0;
+
+//         // --- INICIO DE LA MODIFICACIÓN CLAVE PARA ENVIAR UN 0 EN LUGAR DE NULL ---
+//         // Limpiar y preparar los campos de vehiculoData que son opcionales
+//         // Si 'Cilindros' no está presente, es null, o no es un número válido,
+//         // lo forzamos a 0. Esto evita el error de "parameter not supplied" si
+//         // el SP no está configurado para aceptar NULLs explícitamente.
+//         if (vehiculoData.Cilindros === undefined || vehiculoData.Cilindros === null || isNaN(vehiculoData.Cilindros) || vehiculoData.Cilindros === '') {
+//             vehiculoData.Cilindros = 0; // Forzar a 0 en lugar de null
+//         } else {
+//             vehiculoData.Cilindros = parseInt(vehiculoData.Cilindros); // Asegurarse de que sea un número si no es 0
+//         }
+        
+//         // Limpiar otros campos de vehiculoData que son opcionales y vienen vacíos o nulos
+//         camposOpcionalesVehiculo.forEach(campo => {
+//             // Asegurarse de no sobrescribir la lógica de Cilindros que ya se manejó
+//             if (campo !== 'Cilindros' && vehiculoData.hasOwnProperty(campo) && vehiculoData[campo] === '') {
+//                 vehiculoData[campo] = null; // Convertir cadena vacía a null para otros campos
+//             }
+//         });
+
+//         // Limpiar campos de seguroData que son opcionales y vienen vacíos o nulos
+//         camposOpcionalesSeguro.forEach(campo => {
+//             if (seguroData.hasOwnProperty(campo) && seguroData[campo] === '') {
+//                 seguroData[campo] = null;
+//             }
+//         });
+//         // --- FIN DE LA MODIFICACIÓN CLAVE ---
+
+//         const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData);
+
+//         res.json({
+//             idVehiculo: result.idVehiculo,
+//             returnValue: result.returnValue,
+//             message: 'Vehículo y aseguradora modificados correctamente'
+//         });
+//     } catch (err) {
+//         console.error('❌ Error en la ruta PUT /concesion/:idConcesion/vehiculo/:idVehiculo:', err);
+//         res.status(500).json({ error: err.message || 'Error al modificar vehículo y aseguradora' });
+//     }
+// });
+
 router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
     try {
+        console.log('🔵 Iniciando modificación de vehículo');
         const { idConcesion, idVehiculo } = req.params;
         const { vehiculoData, seguroData } = req.body;
+
+        console.log('📌 Parámetros recibidos:', { idConcesion, idVehiculo });
+        console.log('🚗 Datos del vehículo recibidos:', JSON.stringify(vehiculoData, null, 2));
+        console.log('🛡️ Datos del seguro recibidos:', JSON.stringify(seguroData, null, 2));
 
         // Validar IDs
         const idConcesionInt = parseInt(idConcesion);
         const idVehiculoInt = parseInt(idVehiculo);
         if (isNaN(idConcesionInt) || isNaN(idVehiculoInt)) {
+            console.error('❌ IDs inválidos:', { idConcesion, idVehiculo });
             return res.status(400).json({ error: 'ID de concesión o vehículo inválido' });
         }
 
+        console.log('🔍 Obteniendo datos de usuario...');
         // Obtener datos de usuario, perfil, smartcard y delegación
         const poolUsers = await require('../config/dbUsers');
         const userRequest = poolUsers.request();
@@ -718,6 +950,7 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
             WHERE u.UserID = @UserID
         `);
         const userData = userResult.recordset[0] || {};
+        console.log('👤 Datos de usuario obtenidos:', userData);
 
         // Agregar datos de usuario a seguroData
         seguroData.idConcesion = idConcesionInt;
@@ -726,18 +959,28 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
         seguroData.idSmartCard = userData.SmartCardID || 0;
         seguroData.idDelegacion = userData.DelegationID || 0;
 
+        console.log('🛡️ Datos del seguro actualizados:', JSON.stringify(seguroData, null, 2));
+
+        console.log('🔄 Ejecutando modificación en la base de datos...');
         // Ejecutar la modificación
         const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData);
+        
+        console.log('✅ Resultado de la modificación:', result);
         res.json({
             idVehiculo: result.idVehiculo,
             returnValue: result.returnValue,
             message: 'Vehículo y aseguradora modificados correctamente'
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error al modificar vehículo y aseguradora' });
+        console.error('❌ Error en el endpoint:', err);
+        res.status(500).json({ 
+            error: 'Error al modificar vehículo y aseguradora',
+            details: err.message 
+        });
     }
 });
+
+
 /**
  * Ruta para registrar la impresión de una revista vehicular usando el procedimiento RV_ImprimirRevista.
  * @name POST /revista/imprimir
@@ -808,13 +1051,15 @@ router.get('/revista/buscar', async (req, res) => {
         if (!result.data || result.data.length === 0) {
             return res.status(404).json({ message: 'No se encontraron revistas vehiculares', returnValue: result.returnValue });
         }
+        // Mostrar la respuesta en consola
+        console.log('Respuesta de /revista/buscar:', JSON.stringify(result, null, 2));
         res.json(result);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Error al buscar revistas vehiculares' });
     }
 });
-/**
+/**        
  * Ruta para obtener los detalles de una inspección vehicular por su ID.
  * @name GET /revista/:idRV
  * @function
