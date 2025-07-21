@@ -455,6 +455,7 @@ async function generarReporte(req, res) {     const { fechaInicio, fechaFin, pag
             });
         }
 
+<<<<<<< HEAD
         worksheet.addRow(['Reporte de Inspecciones Vehiculares']);
         worksheet.getRow(logoBase64 ? 2 : 1).font = { bold: true, size: 14 };
         worksheet.getRow(logoBase64 ? 2 : 1).alignment = { horizontal: 'center' };
@@ -464,6 +465,21 @@ async function generarReporte(req, res) {     const { fechaInicio, fechaFin, pag
         worksheet.getRow(logoBase64 ? 3 : 2).font = { italic: true };
         worksheet.getRow(logoBase64 ? 3 : 2).alignment = { horizontal: 'center' };
         worksheet.getRow(logoBase64 ? 3 : 2).height = 15;
+=======
+        // Título
+        const titleRow = 1;
+        const titleColStart = logoBase64 ? 2 : 1;
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${titleRow}`).value = 'Reporte de inspecciones vehiculares';
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${titleRow}`).font = { bold: true, size: 14 };
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${titleRow}`).alignment = { horizontal: 'left' };
+
+        // Rango de fechas
+        const dateRow =  2; 
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).value = `Rango de fechas: ${fechaInicio} - ${fechaFin}`;
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).font = { italic: true };
+        worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).alignment = { horizontal: 'left' };
+        worksheet.getRow(dateRow).height = 1
+>>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
 
         worksheet.addRow([]);
         worksheet.getRow(logoBase64 ? 4 : 3).height = 5;
@@ -528,17 +544,28 @@ async function generarReporte(req, res) {     const { fechaInicio, fechaFin, pag
         if (req.file) {
             logoBase64 = `data:image/${req.file.mimetype.split('/')[1]};base64,${req.file.buffer.toString('base64')}`;
         }
+        const headerY = 10;
+        const logoWidth = 50;
+        const logoHeight = 30;
 
         if (logoBase64) {
-            const logoData = logoBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
-            doc.addImage(logoData, req.file.mimetype.split('/')[1].toUpperCase(), 10, 10, 30, 15);
+        const logoData = logoBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
+            doc.addImage(logoData, req.file.mimetype.split('/')[1].toUpperCase(), 10, headerY, logoWidth, logoHeight);
         }
+<<<<<<< HEAD
 
         doc.setFontSize(16);
         doc.text('Reporte de Inspecciones Vehiculares', doc.internal.pageSize.width / 2, logoBase64 ? 30 : 20, { align: 'center' });
 
+=======
+        // Título
+        const textX = doc.internal.pageSize.width / 2 - (logoBase64 ? logoWidth / 2 : 0) - 10;
+        doc.setFontSize(16);
+        doc.text('Reporte de inspecciones vehiculares', textX, headerY + 5); // Ajuste Y para centrar verticalmente con el logo
+        // Rango de fechas
+>>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
         doc.setFontSize(12);
-        doc.text(`Rango de fechas: ${fechaInicio} - ${fechaFin}`, doc.internal.pageSize.width / 2, logoBase64 ? 40 : 30, { align: 'center' });
+        doc.text(`Fechas: ${fechaInicio} - ${fechaFin}`, textX, headerY + 15); // Debajo del título, en la misma "línea"
 
         const tableData = result.data.map(item => [
             item.IdRevistaVehicular,
@@ -564,7 +591,7 @@ async function generarReporte(req, res) {     const { fechaInicio, fechaFin, pag
                 1: { cellWidth: 25 },
                 2: { cellWidth: 20 },
                 3: { cellWidth: 20 },
-                4: { cellWidth: 50 },
+                4: { cellWidth: 47 },
                 5: { cellWidth: 30 },
                 6: { cellWidth: 30 },
                 7: { cellWidth: 30 },
@@ -1192,11 +1219,13 @@ async function obtenerVehiculoYAseguradora(idConcesion, idVehiculo) {
  * Modifica los datos del vehículo y la aseguradora para una concesión específica.
  * @async
  * @function modificarVehiculoYAseguradora
- * @param {Object} vehiculoData - Datos del vehículo para el procedimiento CV_ModificarVehiculo.
+ * @param {Object} vehiculoData - Datos del vehículo para emular CV_ModificarVehiculo.
  * @param {Object} seguroData - Datos de la aseguradora para el procedimiento AseguradoraInsertar.
+ * @param {Object} userData - Datos del usuario (idUsuario, idPerfil, idSmartCard, idDelegacion).
  * @returns {Promise<Object>} Objeto con `idVehiculo` (ID del vehículo modificado) y `returnValue`.
- * @throws {Error} Si falla la ejecución de los procedimientos.
+ * @throws {Error} Si falla la ejecución de las consultas o procedimientos.
  */
+<<<<<<< HEAD
 // async function modificarVehiculoYAseguradora(vehiculoData, seguroData) {
 //     try {
 //         // Modificar vehículo usando poolVehiclePromise
@@ -1328,10 +1357,204 @@ async function modificarVehiculoYAseguradora(vehiculoData, seguroData) {
     vehicleRequest.input('IdTipoPlaca', sql.Int, vehiculo.IdTipoPlaca);
     vehicleRequest.input('NumeroToneladas', sql.VarChar(10), vehiculo.NumeroToneladas);
     vehicleRequest.input('idPropietario', sql.Int, vehiculo.idPropietario);
+=======
+async function modificarVehiculoYAseguradora(vehiculoData, seguroData, userData) {
+    let transaction;
+    try {
+        const poolVehicle = await poolVehiclePromise;
+        transaction = new sql.Transaction(poolVehicle);
+        await transaction.begin();
+
+        const request = new sql.Request(transaction);
+
+        // Obtener IDs de catálogos usando CV_ObtenerIDSVehiculo (como función con valores de tabla)
+        request.input('Clase', sql.VarChar(50), vehiculoData.Clase);
+        request.input('Color', sql.VarChar(50), vehiculoData.Color);
+        request.input('Combustible', sql.VarChar(50), vehiculoData.Combustible);
+        request.input('Marca', sql.VarChar(50), vehiculoData.Marca);
+        request.input('Origen', sql.VarChar(50), vehiculoData.Origen);
+        request.input('Submarca', sql.VarChar(50), vehiculoData.Submarca);
+        request.input('Tipo', sql.VarChar(50), vehiculoData.Tipo);
+        request.input('Uso', sql.VarChar(50), vehiculoData.Uso);
+        request.input('IdTipoPlaca', sql.Int, vehiculoData.IdTipoPlaca);
+
+        const idsResult = await request.query(`
+            SELECT IdClase, IdColor, IdCombustible, IdMarca, ClaveOrigen, IdSubMarca, IdTipo, IdUso, IdTipoPlaca
+            FROM dbo.CV_ObtenerIDSVehiculo(@Clase, @Color, @Combustible, @Marca, @Origen, @Submarca, @Tipo, @Uso, @IdTipoPlaca)
+        `);
+        const ids = idsResult.recordset[0] || {};
+        let IdClase = ids.IdClase;
+        let IdColor = ids.IdColor;
+        let IdCombustible = ids.IdCombustible;
+        let IdMarca = ids.IdMarca;
+        let ClaveOrigen = ids.ClaveOrigen;
+        let IdSubMarca = ids.IdSubMarca;
+        let IdTipo = ids.IdTipo;
+        let IdUso = ids.IdUso;
+        let IdTipoPlacaWP = ids.IdTipoPlaca || vehiculoData.IdTipoPlaca;
+
+        // Obtener IdServicio usando CV_ObtenerIDServicio (como función con valores de tabla)
+        request.input('servicio', sql.VarChar(100), vehiculoData.servicio);
+        const servicioResult = await request.query(`
+            SELECT IdServicio
+            FROM dbo.CV_ObtenerIDServicio(@servicio)
+        `);
+        const idServicio = servicioResult.recordset[0]?.IdServicio;
+
+        // Obtener IdCategoria, IdMarca, IdSubMarca, IdVersion usando fn_ObtenerMarcaSubmarcaVersionCategoria
+        request.input('ClaveVehicular', sql.VarChar(50), vehiculoData.ClaveVehicular);
+        request.input('Version', sql.VarChar(50), vehiculoData.Version);
+        const categoriaResult = await request.query(`
+            SELECT IdCategoria, IdMarca, IdSubmarca, IdVersion
+            FROM dbo.fn_ObtenerMarcaSubmarcaVersionCategoria(@ClaveVehicular, @Marca, @Submarca, @Version)
+        `);
+        const categoriaData = categoriaResult.recordset[0] || {};
+        let IdCategoria = categoriaData.IdCategoria || 0;
+        IdMarca = categoriaData.IdMarca || IdMarca;
+        IdSubMarca = categoriaData.IdSubmarca || IdSubMarca;
+        let IdVersion = categoriaData.IdVersion || vehiculoData.IdVersion;
+
+        // Manejo de catálogos si no existen
+        if (!IdClase || IdClase === 0) {
+            const insertClase = await request.query(`
+                INSERT INTO Vehiculo.Clase (Clase, Activo)
+                OUTPUT inserted.IdClase
+                VALUES (@Clase, 1)
+            `);
+            IdClase = insertClase.recordset[0].IdClase;
+        }
+
+        if (!IdTipo || IdTipo === 0) {
+            const maxTipo = await request.query(`
+                SELECT ISNULL(MAX(IdTipoVehiculo), 0) + 1 AS NewIdTipo
+                FROM Vehiculo.Tipo
+                WHERE IdClase = @IdClase
+            `);
+            IdTipo = maxTipo.recordset[0].NewIdTipo;
+            await request.query(`
+                INSERT INTO Vehiculo.Tipo (IdClase, IdTipoVehiculo, TipoVehiculo)
+                VALUES (@IdClase, @IdTipo, @Tipo)
+            `);
+        }
+
+        if (!IdUso || IdUso === 0) {
+            const insertUso = await request.query(`
+                INSERT INTO Vehiculo.Uso (UsoVehiculo)
+                OUTPUT inserted.IdUsoVehiculo
+                VALUES (@Uso)
+            `);
+            IdUso = insertUso.recordset[0].IdUsoVehiculo;
+        }
+
+        if (!IdColor || IdColor === 0) {
+            const insertColor = await request.query(`
+                INSERT INTO Vehiculo.Color (Color)
+                OUTPUT inserted.IdColor
+                VALUES (@Color)
+            `);
+            IdColor = insertColor.recordset[0].IdColor;
+        }
+
+        // Actualizar vehículo
+        request.input('Anio', sql.Int, vehiculoData.Anio);
+        request.input('NumeroPasajeros', sql.Int, vehiculoData.NumeroPasajeros);
+        request.input('Cilindros', sql.Int, vehiculoData.Cilindros);
+        request.input('IdClase', sql.Int, IdClase);
+        request.input('IdTipo', sql.Int, IdTipo);
+        request.input('IdMarca', sql.Int, IdMarca);
+        request.input('IdSubMarca', sql.Int, IdSubMarca);
+        request.input('IdVersion', sql.Int, IdVersion);
+        request.input('IdUso', sql.Int, IdUso);
+        request.input('IdCombustible', sql.Int, IdCombustible);
+        request.input('ClaveOrigen', sql.VarChar(20), ClaveOrigen);
+        request.input('IdColor', sql.Int, IdColor);
+        request.input('NumeroMotor', sql.VarChar(50), vehiculoData.NumeroMotor);
+        request.input('RFV', sql.VarChar(50), vehiculoData.RFV);
+        request.input('NumeroPuertas', sql.Int, vehiculoData.NumeroPuertas);
+        request.input('NRPV', sql.VarChar(20), vehiculoData.NRPV);
+        request.input('NumeroToneladas', sql.VarChar(10), vehiculoData.NumeroToneladas);
+        request.input('Capacidad', sql.VarChar(15), vehiculoData.Capacidad);
+        request.input('IdServicio', sql.Int, idServicio);
+        request.input('IdTipoPlacaWP', sql.Int, IdTipoPlacaWP);
+        request.input('IdCategoria', sql.Int, IdCategoria);
+        request.input('NumeroSerie', sql.VarChar(50), vehiculoData.NumeroSerie);
+
+        await request.query(`
+            UPDATE dbo.Vehiculo
+            SET Anio = @Anio,
+                NumeroPasajeros = @NumeroPasajeros,
+                Cilindros = @Cilindros,
+                IdClase = @IdClase,
+                Clase = @Clase,
+                IdTipo = @IdTipo,
+                Tipo = @Tipo,
+                IdMarca = @IdMarca,
+                Marca = @Marca,
+                IdSubMarca = @IdSubMarca,
+                Submarca = @Submarca,
+                IdVersion = @IdVersion,
+                Version = @Version,
+                IdUso = @IdUso,
+                Uso = @Uso,
+                IdCombustible = @IdCombustible,
+                Combustible = @Combustible,
+                ClaveOrigen = @ClaveOrigen,
+                IdColor = @IdColor,
+                Color = @Color,
+                NumeroMotor = @NumeroMotor,
+                RFV = @RFV,
+                NumeroPuertas = @NumeroPuertas,
+                NRPV = @NRPV,
+                ClaveVehicular = @ClaveVehicular,
+                NumeroToneladas = @NumeroToneladas,
+                Capacidad = @Capacidad,
+                IdServicio = @IdServicio,
+                IdTipoPlaca = @IdTipoPlacaWP,
+                IdCategoria = @IdCategoria,
+                UltimaActualizacion = GETDATE()
+            WHERE NumeroSerie = @NumeroSerie
+        `);
+
+        // Obtener datos del vehículo actualizado
+        const vehiculoResult = await request.query(`
+            SELECT IdVehiculo, PlacaAnterior, PlacaAsignada, IdEstatus
+            FROM dbo.Vehiculo
+            WHERE NumeroSerie = @NumeroSerie
+        `);
+        const idVehiculo = vehiculoResult.recordset[0]?.IdVehiculo;
+
+        // Insertar en bitácora usando CV_InsertarBitacoraVehiculo
+        const bitacoraRequest = new sql.Request(transaction);
+        bitacoraRequest.input('IdVehiculo', sql.Int, idVehiculo);
+        bitacoraRequest.input('NumeroSerie', sql.VarChar(50), vehiculoData.NumeroSerie);
+        bitacoraRequest.input('IdUsuario', sql.Int, userData.UserID || 0);
+        bitacoraRequest.input('IdPerfil', sql.Int, userData.ProfileID || 0);
+        bitacoraRequest.input('IdSmartCard', sql.Int, userData.SmartCardID || 0);
+        bitacoraRequest.input('IdDelegacion', sql.Int, userData.DelegationID || 0);
+        bitacoraRequest.input('IdOperacion', sql.Int, 2);
+
+        await bitacoraRequest.execute('dbo.CV_InsertarBitacoraVehiculo');
+
+        // Modificar o insertar aseguradora usando poolPromise
+        const pool = await poolPromise;
+        const insuranceRequest = pool.request();
+        insuranceRequest.input('idConcesion', sql.Int, seguroData.idConcesion);
+        insuranceRequest.input('nombre', sql.VarChar(150), seguroData.nombre);
+        insuranceRequest.input('numeroPoliza', sql.VarChar(50), seguroData.numeroPoliza);
+        insuranceRequest.input('fechaExp', sql.Date, seguroData.fechaExp);
+        insuranceRequest.input('fechaVence', sql.Date, seguroData.fechaVence);
+        insuranceRequest.input('folioPago', sql.VarChar(50), seguroData.folioPago);
+        insuranceRequest.input('observaciones', sql.VarChar(5000), seguroData.observaciones);
+        insuranceRequest.input('IdUsuario', sql.Int, userData.UserID || 0);
+        insuranceRequest.input('IdPerfil', sql.Int, userData.ProfileID || 0);
+        insuranceRequest.input('IdSmartCard', sql.Int, userData.SmartCardID || 0);
+        insuranceRequest.input('IdDelegacion', sql.TinyInt, userData.DelegationID || 0);
+>>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
 
     const vehicleResult = await vehicleRequest.execute('CV_ModificarVehiculo');
     const idVehiculo = vehicleResult.recordset[0]?.['IdVehiculo'] || 0;
 
+<<<<<<< HEAD
     // 👮 Modificar o insertar aseguradora
     const pool = await poolPromise;
     const insuranceRequest = pool.request();
@@ -1365,6 +1588,18 @@ async function modificarVehiculoYAseguradora(vehiculoData, seguroData) {
     });
     throw new Error(`Error al modificar vehículo y aseguradora: ${err.message}`);
   }
+=======
+        await transaction.commit();
+
+        return {
+            idVehiculo,
+            returnValue: 0
+        };
+    } catch (err) {
+        if (transaction) await transaction.rollback();
+        throw new Error(`Error al modificar vehículo y aseguradora: ${err.message}`);
+    }
+>>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
 }
 
 /**
@@ -1556,7 +1791,6 @@ async function buscarRevistasVehiculares(noConcesion, placa, estatus, fechaInici
         if (noConcesion && placa) {
             filteredData = result.recordset.filter(item => item.Placa === placa);
         }
-        console.log(filteredData);
         const enrichedData = filteredData.map(item => {
             return {
                 ...item,

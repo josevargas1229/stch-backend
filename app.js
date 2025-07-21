@@ -7,12 +7,12 @@
 const express = require('express');
 const morgan = require('morgan');
 const session = require('express-session');
-const apiRoutes = require('./routes/api');
-const corsConfig = require('./config/cors');
-const helmetConfig = require('./config/helmet');
-const { generalLimiter, strictLimiter } = require('./config/rateLimit');
+const apiRoutes = require('./src/routes/api');
+const corsConfig = require('./src/config/cors');
+const helmetConfig = require('./src/config/helmet');
+const { generalLimiter, strictLimiter } = require('./src/config/rateLimit');
 const cookieParser = require('cookie-parser');
-const { generateCsrfToken, doubleCsrfProtection } = require('./config/csrf');
+const { generateCsrfToken, doubleCsrfProtection } = require('./src/config/csrf');
 require('dotenv').config();
 
 /** @type {express.Application} Inicializa la aplicación Express */

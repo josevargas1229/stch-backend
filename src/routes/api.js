@@ -940,6 +940,7 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
         userRequest.input('UserID', sql.Int, req.session.userId || 0);
         const userResult = await userRequest.query(`
             SELECT 
+                u.UserID,
                 p.ProfileID,
                 COALESCE(sc.SmartCardID, 0) AS SmartCardID,
                 COALESCE(ud.DelegationID, 0) AS DelegationID
@@ -950,22 +951,25 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
             WHERE u.UserID = @UserID
         `);
         const userData = userResult.recordset[0] || {};
+<<<<<<< HEAD
         console.log('👤 Datos de usuario obtenidos:', userData);
 
+=======
+>>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
         // Agregar datos de usuario a seguroData
         seguroData.idConcesion = idConcesionInt;
-        seguroData.idUsuario = req.session.userId || 0;
-        seguroData.idPerfil = userData.ProfileID || 0;
-        seguroData.idSmartCard = userData.SmartCardID || 0;
-        seguroData.idDelegacion = userData.DelegationID || 0;
 
         console.log('🛡️ Datos del seguro actualizados:', JSON.stringify(seguroData, null, 2));
 
         console.log('🔄 Ejecutando modificación en la base de datos...');
         // Ejecutar la modificación
+<<<<<<< HEAD
         const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData);
         
         console.log('✅ Resultado de la modificación:', result);
+=======
+        const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData, userData);
+>>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
         res.json({
             idVehiculo: result.idVehiculo,
             returnValue: result.returnValue,
