@@ -951,11 +951,6 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
             WHERE u.UserID = @UserID
         `);
         const userData = userResult.recordset[0] || {};
-<<<<<<< HEAD
-        console.log('👤 Datos de usuario obtenidos:', userData);
-
-=======
->>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
         // Agregar datos de usuario a seguroData
         seguroData.idConcesion = idConcesionInt;
 
@@ -963,13 +958,7 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
 
         console.log('🔄 Ejecutando modificación en la base de datos...');
         // Ejecutar la modificación
-<<<<<<< HEAD
-        const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData);
-        
-        console.log('✅ Resultado de la modificación:', result);
-=======
         const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData, userData);
->>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
         res.json({
             idVehiculo: result.idVehiculo,
             returnValue: result.returnValue,

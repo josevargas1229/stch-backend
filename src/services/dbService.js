@@ -455,7 +455,6 @@ async function generarReporte(req, res) {     const { fechaInicio, fechaFin, pag
             });
         }
 
-<<<<<<< HEAD
         worksheet.addRow(['Reporte de Inspecciones Vehiculares']);
         worksheet.getRow(logoBase64 ? 2 : 1).font = { bold: true, size: 14 };
         worksheet.getRow(logoBase64 ? 2 : 1).alignment = { horizontal: 'center' };
@@ -465,7 +464,6 @@ async function generarReporte(req, res) {     const { fechaInicio, fechaFin, pag
         worksheet.getRow(logoBase64 ? 3 : 2).font = { italic: true };
         worksheet.getRow(logoBase64 ? 3 : 2).alignment = { horizontal: 'center' };
         worksheet.getRow(logoBase64 ? 3 : 2).height = 15;
-=======
         // Título
         const titleRow = 1;
         const titleColStart = logoBase64 ? 2 : 1;
@@ -479,7 +477,6 @@ async function generarReporte(req, res) {     const { fechaInicio, fechaFin, pag
         worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).font = { italic: true };
         worksheet.getCell(`${String.fromCharCode(65 + titleColStart - 1)}${dateRow}`).alignment = { horizontal: 'left' };
         worksheet.getRow(dateRow).height = 1
->>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
 
         worksheet.addRow([]);
         worksheet.getRow(logoBase64 ? 4 : 3).height = 5;
@@ -552,18 +549,11 @@ async function generarReporte(req, res) {     const { fechaInicio, fechaFin, pag
         const logoData = logoBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '');
             doc.addImage(logoData, req.file.mimetype.split('/')[1].toUpperCase(), 10, headerY, logoWidth, logoHeight);
         }
-<<<<<<< HEAD
-
-        doc.setFontSize(16);
-        doc.text('Reporte de Inspecciones Vehiculares', doc.internal.pageSize.width / 2, logoBase64 ? 30 : 20, { align: 'center' });
-
-=======
         // Título
         const textX = doc.internal.pageSize.width / 2 - (logoBase64 ? logoWidth / 2 : 0) - 10;
         doc.setFontSize(16);
         doc.text('Reporte de inspecciones vehiculares', textX, headerY + 5); // Ajuste Y para centrar verticalmente con el logo
         // Rango de fechas
->>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
         doc.setFontSize(12);
         doc.text(`Fechas: ${fechaInicio} - ${fechaFin}`, textX, headerY + 15); // Debajo del título, en la misma "línea"
 
@@ -1225,139 +1215,6 @@ async function obtenerVehiculoYAseguradora(idConcesion, idVehiculo) {
  * @returns {Promise<Object>} Objeto con `idVehiculo` (ID del vehículo modificado) y `returnValue`.
  * @throws {Error} Si falla la ejecución de las consultas o procedimientos.
  */
-<<<<<<< HEAD
-// async function modificarVehiculoYAseguradora(vehiculoData, seguroData) {
-//     try {
-//         // Modificar vehículo usando poolVehiclePromise
-//         const poolVehicle = await poolVehiclePromise;
-//         const vehicleRequest = poolVehicle.request();
-//         vehicleRequest.input('Anio', sql.Int, vehiculoData.Modelo);
-//         vehicleRequest.input('NumeroPasajeros', sql.Int, vehiculoData.NumeroPasajeros);
-//         vehicleRequest.input('Capacidad', sql.VarChar(15), vehiculoData.Capacidad);
-//         vehicleRequest.input('Cilindros', sql.Int, vehiculoData.Cilindros);
-//         vehicleRequest.input('Clase', sql.VarChar(50), vehiculoData.Clase);
-//         vehicleRequest.input('ClaveVehicular', sql.VarChar(50), vehiculoData.ClaveVehicular);
-//         vehicleRequest.input('Color', sql.VarChar(50), vehiculoData.Color);
-//         vehicleRequest.input('Combustible', sql.VarChar(50), vehiculoData.Combustible);
-//         vehicleRequest.input('servicio', sql.VarChar(100), vehiculoData.servicio);
-//         vehicleRequest.input('IdVersion', sql.Int, vehiculoData.IdVersion);//me falta agregar la version en select
-//         vehicleRequest.input('Marca', sql.VarChar(50), vehiculoData.Marca);
-//         vehicleRequest.input('NRPV', sql.VarChar(20), vehiculoData.NRPV);
-//         vehicleRequest.input('NumeroMotor', sql.VarChar(50), vehiculoData.NumeroMotor);
-//         vehicleRequest.input('NumeroPuertas', sql.Int, vehiculoData.NumeroPuertas);
-//         vehicleRequest.input('NumeroSerie', sql.VarChar(50), vehiculoData.NumeroSerie);
-//         vehicleRequest.input('Origen', sql.VarChar(50), vehiculoData.Origen);
-//         vehicleRequest.input('PlacaAnterior', sql.VarChar(20), vehiculoData.PlacaAnterior);
-//         vehicleRequest.input('PlacaAsignada', sql.VarChar(20), vehiculoData.PlacaAsignada);
-//         vehicleRequest.input('RFV', sql.VarChar(50), vehiculoData.RFV);
-//         vehicleRequest.input('Submarca', sql.VarChar(50), vehiculoData.Submarca);
-//         vehicleRequest.input('Tipo', sql.VarChar(50), vehiculoData.Tipo);
-//         vehicleRequest.input('Uso', sql.VarChar(50), vehiculoData.Uso);
-//         vehicleRequest.input('Version', sql.VarChar(50), vehiculoData.Version);
-//         vehicleRequest.input('IdTipoPlaca', sql.Int, vehiculoData.IdTipoPlaca);
-//         vehicleRequest.input('NumeroToneladas', sql.VarChar(10), vehiculoData.NumeroToneladas);
-//         vehicleRequest.input('idPropietario', sql.Int, vehiculoData.idPropietario);
-
-//         const vehicleResult = await vehicleRequest.execute('CV_ModificarVehiculo');
-//         const idVehiculo = vehicleResult.recordset[0]?.[''];
-
-//         // Modificar o insertar aseguradora usando poolPromise
-//         const pool = await poolPromise;
-//         const insuranceRequest = pool.request();
-//         insuranceRequest.input('idConcesion', sql.Int, seguroData.idConcesion);
-//         insuranceRequest.input('nombre', sql.VarChar(150), seguroData.nombre);
-//         insuranceRequest.input('numeroPoliza', sql.VarChar(50), seguroData.numeroPoliza);
-//         insuranceRequest.input('fechaExp', sql.Date, seguroData.fechaExp);
-//         insuranceRequest.input('fechaVence', sql.Date, seguroData.fechaVence);
-//         insuranceRequest.input('folioPago', sql.VarChar(50), seguroData.folioPago);
-//         insuranceRequest.input('observaciones', sql.VarChar(5000), seguroData.observaciones);
-//         insuranceRequest.input('idUsuario', sql.Int, seguroData.idUsuario || 0);
-//         insuranceRequest.input('idPerfil', sql.Int, seguroData.idPerfil || 0);
-//         insuranceRequest.input('idSmartCard', sql.Int, seguroData.idSmartCard || 0);
-//         insuranceRequest.input('idDelegacion', sql.TinyInt, seguroData.idDelegacion || 0);
-
-//         await insuranceRequest.execute('AseguradoraInsertar');
-
-//         return {
-//             idVehiculo,
-//             returnValue: 0
-//         };
-//     } catch (err) {
-//         console.error('🔥 Error detallado:', {
-//             message: err.message,
-//             stack: err.stack,
-//             sqlError: err.originalError?.info?.message,
-//             params: {
-//                 vehiculo: vehiculoData,
-//                 seguro: seguroData
-//             }
-//         });
-//         throw new Error(`Error al modificar vehículo y aseguradora: ${err.message}`);
-//     }
-// }
-async function modificarVehiculoYAseguradora(vehiculoData, seguroData) {
-  try {
-    // 🔄 Transformar nombres del frontend al formato que espera el backend
-    const vehiculo = {
-      Anio: parseInt(vehiculoData.Modelo) || 0,
-      NumeroPasajeros: parseInt(vehiculoData.NumeroPasajeros) || 0,
-      Capacidad: vehiculoData.Capacidad || "",
-      Cilindros: parseInt(vehiculoData.Cilindros) || 0,
-      Clase: vehiculoData.Clase || "",
-      ClaveVehicular: vehiculoData.ClaveVehicular || "",
-      Color: vehiculoData.Color || "",
-      Combustible: vehiculoData.Combustible || "",
-      servicio: vehiculoData.servicio || "",
-      IdVersion: parseInt(vehiculoData.IdVersion) || 0,
-      Marca: vehiculoData.Marca || "",
-      NRPV: vehiculoData.NRPV || "",
-      NumeroMotor: vehiculoData.NumeroMotor || "",
-      NumeroPuertas: parseInt(vehiculoData.NumeroPuertas) || 0,
-      NumeroSerie: vehiculoData.NumeroSerie || "",
-      Origen: vehiculoData.Origen || "",
-      PlacaAnterior: vehiculoData.PlacaAnterior || "",
-      PlacaAsignada: vehiculoData.PlacaAsignada || "",
-      RFV: vehiculoData.RFV || "",
-      Submarca: vehiculoData.Submarca || "",
-      Tipo: vehiculoData.Tipo || "",
-      Uso: vehiculoData.Uso || "",
-      Version: vehiculoData.Version || "",
-      IdTipoPlaca: parseInt(vehiculoData.IdTipoPlaca) || 0,
-      NumeroToneladas: vehiculoData.NumeroToneladas || "",
-      idPropietario: parseInt(vehiculoData.IdPropietario) || 0
-    };
-
-    const poolVehicle = await poolVehiclePromise;
-    const vehicleRequest = poolVehicle.request();
-
-    // Enviar los campos esperados por el SP
-    vehicleRequest.input('Anio', sql.Int, vehiculo.Anio);
-    vehicleRequest.input('NumeroPasajeros', sql.Int, vehiculo.NumeroPasajeros);
-    vehicleRequest.input('Capacidad', sql.VarChar(15), vehiculo.Capacidad);
-    vehicleRequest.input('Cilindros', sql.Int, vehiculo.Cilindros);
-    vehicleRequest.input('Clase', sql.VarChar(50), vehiculo.Clase);
-    vehicleRequest.input('ClaveVehicular', sql.VarChar(50), vehiculo.ClaveVehicular);
-    vehicleRequest.input('Color', sql.VarChar(50), vehiculo.Color);
-    vehicleRequest.input('Combustible', sql.VarChar(50), vehiculo.Combustible);
-    vehicleRequest.input('servicio', sql.VarChar(100), vehiculo.servicio);
-    vehicleRequest.input('IdVersion', sql.Int, vehiculo.IdVersion);
-    vehicleRequest.input('Marca', sql.VarChar(50), vehiculo.Marca);
-    vehicleRequest.input('NRPV', sql.VarChar(20), vehiculo.NRPV);
-    vehicleRequest.input('NumeroMotor', sql.VarChar(50), vehiculo.NumeroMotor);
-    vehicleRequest.input('NumeroPuertas', sql.Int, vehiculo.NumeroPuertas);
-    vehicleRequest.input('NumeroSerie', sql.VarChar(50), vehiculo.NumeroSerie);
-    vehicleRequest.input('Origen', sql.VarChar(50), vehiculo.Origen);
-    vehicleRequest.input('PlacaAnterior', sql.VarChar(20), vehiculo.PlacaAnterior);
-    vehicleRequest.input('PlacaAsignada', sql.VarChar(20), vehiculo.PlacaAsignada);
-    vehicleRequest.input('RFV', sql.VarChar(50), vehiculo.RFV);
-    vehicleRequest.input('Submarca', sql.VarChar(50), vehiculo.Submarca);
-    vehicleRequest.input('Tipo', sql.VarChar(50), vehiculo.Tipo);
-    vehicleRequest.input('Uso', sql.VarChar(50), vehiculo.Uso);
-    vehicleRequest.input('Version', sql.VarChar(50), vehiculo.Version);
-    vehicleRequest.input('IdTipoPlaca', sql.Int, vehiculo.IdTipoPlaca);
-    vehicleRequest.input('NumeroToneladas', sql.VarChar(10), vehiculo.NumeroToneladas);
-    vehicleRequest.input('idPropietario', sql.Int, vehiculo.idPropietario);
-=======
 async function modificarVehiculoYAseguradora(vehiculoData, seguroData, userData) {
     let transaction;
     try {
@@ -1521,7 +1378,6 @@ async function modificarVehiculoYAseguradora(vehiculoData, seguroData, userData)
             FROM dbo.Vehiculo
             WHERE NumeroSerie = @NumeroSerie
         `);
-        const idVehiculo = vehiculoResult.recordset[0]?.IdVehiculo;
 
         // Insertar en bitácora usando CV_InsertarBitacoraVehiculo
         const bitacoraRequest = new sql.Request(transaction);
@@ -1549,46 +1405,10 @@ async function modificarVehiculoYAseguradora(vehiculoData, seguroData, userData)
         insuranceRequest.input('IdPerfil', sql.Int, userData.ProfileID || 0);
         insuranceRequest.input('IdSmartCard', sql.Int, userData.SmartCardID || 0);
         insuranceRequest.input('IdDelegacion', sql.TinyInt, userData.DelegationID || 0);
->>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
 
     const vehicleResult = await vehicleRequest.execute('CV_ModificarVehiculo');
     const idVehiculo = vehicleResult.recordset[0]?.['IdVehiculo'] || 0;
 
-<<<<<<< HEAD
-    // 👮 Modificar o insertar aseguradora
-    const pool = await poolPromise;
-    const insuranceRequest = pool.request();
-    insuranceRequest.input('idConcesion', sql.Int, seguroData.idConcesion);
-    insuranceRequest.input('nombre', sql.VarChar(150), seguroData.nombre);
-    insuranceRequest.input('numeroPoliza', sql.VarChar(50), seguroData.numeroPoliza);
-    insuranceRequest.input('fechaExp', sql.Date, seguroData.fechaExp);
-    insuranceRequest.input('fechaVence', sql.Date, seguroData.fechaVence);
-    insuranceRequest.input('folioPago', sql.VarChar(50), seguroData.folioPago);
-    insuranceRequest.input('observaciones', sql.VarChar(5000), seguroData.observaciones);
-    insuranceRequest.input('idUsuario', sql.Int, seguroData.idUsuario || 0);
-    insuranceRequest.input('idPerfil', sql.Int, seguroData.idPerfil || 0);
-    insuranceRequest.input('idSmartCard', sql.Int, seguroData.idSmartCard || 0);
-    insuranceRequest.input('idDelegacion', sql.TinyInt, seguroData.idDelegacion || 0);
-
-    await insuranceRequest.execute('AseguradoraInsertar');
-
-    return {
-      idVehiculo,
-      returnValue: 0
-    };
-  } catch (err) {
-    console.error('🔥 Error detallado:', {
-      message: err.message,
-      stack: err.stack,
-      sqlError: err.originalError?.info?.message,
-      params: {
-        vehiculo: vehiculoData,
-        seguro: seguroData
-      }
-    });
-    throw new Error(`Error al modificar vehículo y aseguradora: ${err.message}`);
-  }
-=======
         await transaction.commit();
 
         return {
@@ -1599,7 +1419,6 @@ async function modificarVehiculoYAseguradora(vehiculoData, seguroData, userData)
         if (transaction) await transaction.rollback();
         throw new Error(`Error al modificar vehículo y aseguradora: ${err.message}`);
     }
->>>>>>> 806dd7cf6f0fbe56e8027c3e145b141e4c6d89f5
 }
 
 /**
