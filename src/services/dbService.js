@@ -889,9 +889,18 @@ async function obtenerTiposTramite() {
  * @param {string} [data.folio] - Folio de la revista (opcional, por defecto '').
  * @param {number} data.IdUser - ID del usuario que registra la revista.
  * @param {string} [data.Inspector] - Nombre del inspector.
- * @returns {Promise<Object>} Objeto con el ID de la revista insertada:
- * - `idRV`: ID de la revista vehicular generada.
- * @throws {Error} Si ocurre un error al ejecutar el procedimiento `RV_InsertarRevista`, con el mensaje "Error al insertar la inspección: [mensaje de error]".
+ * @param {number} data.modeloId - ID del modelo del vehículo. Rango de años del modelo.
+ * @param {number} data.tipoId - ID del tipo de vehículo. Tipo de vehículo.
+ * @param {number} data.capacidadId - ID de la capacidad de pasajeros. Capacidad de pasajeros.
+ * @param {number} data.tipoBolsa - Tipo de bolsas de aire (0, 1 o 2). 0=No tiene, 1=Frontales, 2=Frontales y Laterales.
+ * @param {number} data.tieneAire - Estado del aire acondicionado (0 o 1).
+ * @param {number} data.frenoId - ID del tipo de freno. Tipo de freno.
+ * @param {number} data.cinturonId - ID de los cinturones de seguridad. Cantidad de cinturones.
+ * @param {number} data.tapiceriaId - ID de la tapicería. Material de la tapicería.
+ * @param {number} data.puntuacion - Puntuación del vehículo.
+ * @param {number} data.clasificacionId - ID de la clasificación. Clasificación del vehículo (e.g., 'esencial', 'selecto', 'prime').
+ * @returns {Promise<Object>} Objeto con el ID de la revista insertada: - `idRV`: ID de la revista vehicular generada.
+ * @throws {Error} Si ocurre un error al ejecutar el procedimiento `RV_InsertarRevistaPuntuacion`, con el mensaje "Error al insertar la inspección: [mensaje de error]".
  */
 async function insertarRevista(data) {
     try {
@@ -940,8 +949,19 @@ async function insertarRevista(data) {
         request.input('folio', sql.NVarChar(12), data.folio || '');
         request.input('IdUser', sql.Int, parseInt(data.IdUser));
         request.input('Inspector', sql.NVarChar(200), data.Inspector || '');
+        // Nuevos parámetros para puntuación
+        request.input('ModeloId', sql.TinyInt, parseInt(data.modeloId));
+        request.input('TipoId', sql.TinyInt, parseInt(data.tipoId));
+        request.input('CapacidadId', sql.TinyInt, parseInt(data.capacidadId));
+        request.input('TipoBolsa', sql.Int, parseInt(data.tipoBolsa));
+        request.input('TieneAire', sql.Bit, parseInt(data.tieneAire));
+        request.input('FrenoId', sql.TinyInt, parseInt(data.frenoId));
+        request.input('CinturonId', sql.TinyInt, parseInt(data.cinturonId));
+        request.input('TapiceriaId', sql.TinyInt, parseInt(data.tapiceriaId));
+        request.input('Puntuacion', sql.Int, parseInt(data.puntuacion));
+        request.input('ClasificacionId', sql.TinyInt, parseInt(data.clasificacionId));
 
-        const result = await request.execute('RV_InsertarRevista');
+        const result = await request.execute('RV_InsertarRevistaPuntuacion');
         return { idRV: result.recordset[0][''] };
     } catch (err) {
         throw new Error('Error al insertar la inspección: ' + err.message);

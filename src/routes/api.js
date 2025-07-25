@@ -346,7 +346,6 @@ router.get('/revista/tipos-imagen', async (req, res) => {
  * @returns {Object} Respuesta JSON con `idRV` (ID de la inspección) y `success`, o error 400/500.
  */
 router.post('/revista', async (req, res) => {
-    console.log(req.body)
     try {
         const {
             idConcesion,
@@ -386,7 +385,18 @@ router.post('/revista', async (req, res) => {
             observaciones,
             aprobado,
             imagenCromaticaVer,
-            folio
+            folio,
+            // Nuevos campos para puntuación
+            modeloId,
+            tipoId,
+            capacidadId,
+            tipoBolsa,
+            tieneAire,
+            frenoId,
+            cinturonId,
+            tapiceriaId,
+            puntuacion,
+            clasificacionId
         } = req.body;
 
         // Validar campos requeridos
@@ -438,7 +448,18 @@ router.post('/revista', async (req, res) => {
             imagenCromaticaVer,
             folio,
             IdUser,
-            Inspector
+            Inspector,
+            // Nuevos parámetros para puntuación
+            modeloId,
+            tipoId,
+            capacidadId,
+            tipoBolsa,
+            tieneAire,
+            frenoId,
+            cinturonId,
+            tapiceriaId,
+            puntuacion,
+            clasificacionId
         });
 
         res.json({ success: true, idRV: result.idRV });
