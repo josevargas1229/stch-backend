@@ -731,7 +731,21 @@ router.get('/vehiculo/versiones', async (req, res) => {
         res.status(500).json({ error: 'Error al obtener versiones de vehículos' });
     }
 });
-
+/**
+ * Ruta para obtener todos los datos de las tablas de puntuacion de los vehículos.
+ * @name GET /vehiculo/datos/puntuacion
+ * @function
+ * @returns {Object} Respuesta JSON con `data` (resultados de las tablas) y `returnValue`, o error 500.
+ */
+router.get('/vehiculo/datos/puntuacion', async (req, res) => {
+    try {
+        const result = await dbService.obtenerDatosVehiculo();
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al obtener los datos de vehículos' });
+    }
+});
 
 /**
  * Ruta para modificar los datos del vehículo y la aseguradora de una concesión.

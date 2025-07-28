@@ -1112,7 +1112,37 @@ async function obtenerTiposImagen() {
         throw new Error('Error al obtener tipos de imagen: ' + err.message);
     }
 }
+/**
+ * Obtiene todos los datos relacionados con las características de vehículos.
+ * @async
+ * @function obtenerDatosVehiculo
+ * @returns {Promise<Object>} Objeto con los resultados:
+ * - `data`: Array de resultados devueltos por el procedimiento `VehiculoObtenerDatosPuntuacion`.
+ * - `returnValue`: Valor de retorno del procedimiento almacenado.
+ * @throws {Error} Si ocurre un error al ejecutar el procedimiento, con el mensaje "Error al obtener datos de vehículos: [mensaje de error]".
+ */
+async function obtenerDatosVehiculo() {
+    try {
+        const pool = await poolVehiclePromise;
+        const result = await pool.request().execute('dbo.VehiculoObtenerDatosPuntuacion');
+        const transformedData = {
+            CapacidadPasajeros: result.recordsets[0],
+            CinturonesSeguridad: result.recordsets[1],
+            ModeloVehiculo: result.recordsets[2],
+            TapiceriaAsientos: result.recordsets[3],
+            TiposFreno: result.recordsets[4],
+            TipoVehiculo: result.recordsets[5],
+            Clasificacion: result.recordsets[6]
+        };
 
+        return {
+            data: transformedData,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error('Error al obtener datos de vehículos: ' + err.message);
+    }
+}
 /**
  * Obtiene los detalles del vehículo y la aseguradora para una concesión y vehículo específicos.
  * @async
@@ -1528,6 +1558,7 @@ module.exports = {
     eliminarImagenRevista,
     obtenerRevistaPorId,
     obtenerTiposImagen,
+    obtenerDatosVehiculo,
     obtenerVehiculoYAseguradora,
     generarReporte,
     modificarVehiculoYAseguradora,
