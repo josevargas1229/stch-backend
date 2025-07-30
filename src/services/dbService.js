@@ -890,9 +890,18 @@ async function obtenerTiposTramite() {
  * @param {string} [data.folio] - Folio de la revista (opcional, por defecto '').
  * @param {number} data.IdUser - ID del usuario que registra la revista.
  * @param {string} [data.Inspector] - Nombre del inspector.
- * @returns {Promise<Object>} Objeto con el ID de la revista insertada:
- * - `idRV`: ID de la revista vehicular generada.
- * @throws {Error} Si ocurre un error al ejecutar el procedimiento `RV_InsertarRevista`, con el mensaje "Error al insertar la inspección: [mensaje de error]".
+ * @param {number} data.modeloId - ID del modelo del vehículo. Rango de años del modelo.
+ * @param {number} data.tipoId - ID del tipo de vehículo. Tipo de vehículo.
+ * @param {number} data.capacidadId - ID de la capacidad de pasajeros. Capacidad de pasajeros.
+ * @param {number} data.tipoBolsa - Tipo de bolsas de aire (0, 1 o 2). 0=No tiene, 1=Frontales, 2=Frontales y Laterales.
+ * @param {number} data.tieneAire - Estado del aire acondicionado (0 o 1).
+ * @param {number} data.frenoId - ID del tipo de freno. Tipo de freno.
+ * @param {number} data.cinturonId - ID de los cinturones de seguridad. Cantidad de cinturones.
+ * @param {number} data.tapiceriaId - ID de la tapicería. Material de la tapicería.
+ * @param {number} data.puntuacion - Puntuación del vehículo.
+ * @param {number} data.clasificacionId - ID de la clasificación. Clasificación del vehículo (e.g., 'esencial', 'selecto', 'prime').
+ * @returns {Promise<Object>} Objeto con el ID de la revista insertada: - `idRV`: ID de la revista vehicular generada.
+ * @throws {Error} Si ocurre un error al ejecutar el procedimiento `RV_InsertarRevistaPuntuacion`, con el mensaje "Error al insertar la inspección: [mensaje de error]".
  */
 async function insertarRevista(data) {
     try {
@@ -941,8 +950,19 @@ async function insertarRevista(data) {
         request.input('folio', sql.NVarChar(12), data.folio || '');
         request.input('IdUser', sql.Int, parseInt(data.IdUser));
         request.input('Inspector', sql.NVarChar(200), data.Inspector || '');
+        // Nuevos parámetros para puntuación
+        request.input('ModeloId', sql.TinyInt, parseInt(data.modeloId));
+        request.input('TipoId', sql.TinyInt, parseInt(data.tipoId));
+        request.input('CapacidadId', sql.TinyInt, parseInt(data.capacidadId));
+        request.input('TipoBolsa', sql.Int, parseInt(data.tipoBolsa));
+        request.input('TieneAire', sql.Bit, parseInt(data.tieneAire));
+        request.input('FrenoId', sql.TinyInt, parseInt(data.frenoId));
+        request.input('CinturonId', sql.TinyInt, parseInt(data.cinturonId));
+        request.input('TapiceriaId', sql.TinyInt, parseInt(data.tapiceriaId));
+        request.input('Puntuacion', sql.Int, parseInt(data.puntuacion));
+        request.input('ClasificacionId', sql.TinyInt, parseInt(data.clasificacionId));
 
-        const result = await request.execute('RV_InsertarRevista');
+        const result = await request.execute('RV_InsertarRevistaPuntuacion');
         return { idRV: result.recordset[0][''] };
     } catch (err) {
         throw new Error('Error al insertar la inspección: ' + err.message);
@@ -1058,79 +1078,7 @@ async function obtenerRevistaPorId(idRV) {
         const pool = await poolPromise;
         const result = await pool.request()
             .input('IdRevistaVehicular', sql.BigInt, idRV)
-            .query(`
-                SELECT 
-                    rv.IdRevistaVehicular,
-                    rv.IdConsesion,
-                    rv.Inspector,
-                    DATEPART(DAY, rv.FechaInspeccion) AS DiaInspeccion,
-                    DATEPART(MONTH, rv.FechaInspeccion) AS MesInspeccion,
-                    DATEPART(YEAR, rv.FechaInspeccion) AS AnioInspeccion,
-                    prop.NombreCompletoNA,
-                    ISNULL(propInfo.Telefono, '') AS Telefono,
-                    ct.Tramite,
-                    cmun.Nombre AS Municipio,
-                    cmod.Modalidad,
-                    vehM.Marca,
-                    veh.NumeroMotor,
-                    veh.Anio AS Modelo,
-                    veh.NumeroSerie,
-                    rv.Placa AS PlacaAsignada,
-                    vehT.TipoVehiculo,
-                    vehS.SubMarca,
-                    cda.NombreAseguradora AS ciaAseguradora,
-                    cda.NumeroPoliza,
-                    cda.FechaVencimiento,
-                    rv.PlacaDelanteraVer AS PlacaDelantera,
-                    rv.PlacaTraseraVer AS PlacaTrasera,
-                    rv.CalcaVerificacionVer AS CalcaVerificacionVer,
-                    rv.CalcaTenenciaVer AS CalcaTenenciaVer,
-                    rv.PinturaCarroceriaVer AS PinturaCarroceriaVer,
-                    rv.EstadoLlantasVer AS EstadoLlantasVer,
-                    rv.DefensasVer AS DefensasVer,
-                    rv.VidriosVer AS VidriosVer,
-                    rv.LimpiadoresVer AS LimpiadoresVer,
-                    rv.EspejosVer AS EspejosVer,
-                    rv.LlantaRefaccionVer AS LlantaRefaccionVer,
-                    rv.ParabrisasMedallonVer AS ParabrisasMedallonVer,
-                    rv.ClaxonVer AS ClaxonVer,
-                    rv.LuzBajaVer AS LuzBajaVer,
-                    rv.LuzAltaVer AS LuzAltaVer,
-                    rv.CuartosVer AS CuartosVer,
-                    rv.DireccionalesVer AS DireccionalesVer,
-                    rv.IntermitentesVer AS IntermitentesVer,
-                    rv.StopVer AS StopVer,
-                    rv.TimbreVer AS TimbreVer,
-                    rv.EstinguidorVer AS EstinguidorVer,
-                    rv.HerramientaVer AS HerramientaVer,
-                    rv.SistemaFrenadoVer AS SistemaFrenadoVer,
-                    rv.SistemaDireccionVer AS SistemaDireccionVer,
-                    rv.SistemaSuspensionVer AS SistemaSuspensionVer,
-                    rv.InterioresVer AS InterioresVer,
-                    rv.BotiquinVer AS BotiquinVer,
-                    rv.CinturonSeguridadVer AS CinturonSeguridadVer,
-                    rv.Observaciones,
-                    rv.Aprobado AS Aprobado,
-                    rv.ImagenCromaticaVer AS ImagenCromaticaVer
-                FROM dbo.RevistaVehicular AS rv 
-                INNER JOIN Catalogo.Tramite AS ct ON rv.IdTramite = ct.IdTramite 
-                INNER JOIN Concesion.Concesion AS cc ON rv.IdConsesion = cc.IdConcesion 
-                INNER JOIN Concesion.DatosAseguradora AS cda ON cc.IdConcesion = cda.IdConcesion 
-                INNER JOIN Catalogo.Municipio AS cmun ON cc.IdMunicipioAutorizado = cmun.IdMunicipio 
-                    AND cc.IdEstadoExpedicion = cmun.IdEstado 
-                INNER JOIN Concesion.Modalidad AS cmod ON cc.IdModalidad = cmod.IdModalidad 
-                LEFT OUTER JOIN Concesion.Submodalidad AS csubmod ON cc.IdSubmodalidad = csubmod.IdSubmodalidad 
-                    AND LEN(csubmod.NumeroSubserie) > 0 
-                INNER JOIN Concesion.Servicio AS cser ON cc.IdServicio = cser.IdServicio 
-                INNER JOIN [${process.env.DB_VEHICLE_NAME}].dbo.Propietario AS prop ON prop.IdPropietario = cc.IdPropietario 
-                LEFT OUTER JOIN [${process.env.DB_VEHICLE_NAME}].Propietario.Direccion AS propInfo ON propInfo.IdPropietario = cc.IdPropietario 
-                INNER JOIN [${process.env.DB_VEHICLE_NAME}].dbo.Vehiculo AS veh ON veh.IdVehiculo = cc.IdVehiculo 
-                INNER JOIN [${process.env.DB_VEHICLE_NAME}].Vehiculo.Marca AS vehM ON vehM.IdMarca = veh.IdMarca 
-                INNER JOIN [${process.env.DB_VEHICLE_NAME}].Vehiculo.SubMarca AS vehS ON vehS.IdSubMarca = veh.IdSubMarca 
-                INNER JOIN [${process.env.DB_VEHICLE_NAME}].Vehiculo.Tipo AS vehT ON vehT.IdTipoVehiculo = veh.IdTipo 
-                    AND veh.IdClase = vehT.IdClase
-                WHERE rv.IdRevistaVehicular = @IdRevistaVehicular
-            `);
+            .execute('dbo.SP_ObtenerRevistaPuntuacionPorId');
 
         if (result.recordset.length === 0) {
             return { data: null, returnValue: 0 };
@@ -1165,7 +1113,37 @@ async function obtenerTiposImagen() {
         throw new Error('Error al obtener tipos de imagen: ' + err.message);
     }
 }
+/**
+ * Obtiene todos los datos relacionados con las características de vehículos.
+ * @async
+ * @function obtenerDatosVehiculo
+ * @returns {Promise<Object>} Objeto con los resultados:
+ * - `data`: Array de resultados devueltos por el procedimiento `VehiculoObtenerDatosPuntuacion`.
+ * - `returnValue`: Valor de retorno del procedimiento almacenado.
+ * @throws {Error} Si ocurre un error al ejecutar el procedimiento, con el mensaje "Error al obtener datos de vehículos: [mensaje de error]".
+ */
+async function obtenerDatosVehiculo() {
+    try {
+        const pool = await poolVehiclePromise;
+        const result = await pool.request().execute('dbo.VehiculoObtenerDatosPuntuacion');
+        const transformedData = {
+            CapacidadPasajeros: result.recordsets[0],
+            CinturonesSeguridad: result.recordsets[1],
+            ModeloVehiculo: result.recordsets[2],
+            TapiceriaAsientos: result.recordsets[3],
+            TiposFreno: result.recordsets[4],
+            TipoVehiculo: result.recordsets[5],
+            Clasificacion: result.recordsets[6]
+        };
 
+        return {
+            data: transformedData,
+            returnValue: result.returnValue
+        };
+    } catch (err) {
+        throw new Error('Error al obtener datos de vehículos: ' + err.message);
+    }
+}
 /**
  * Obtiene los detalles del vehículo y la aseguradora para una concesión y vehículo específicos.
  * @async
@@ -1581,6 +1559,7 @@ module.exports = {
     eliminarImagenRevista,
     obtenerRevistaPorId,
     obtenerTiposImagen,
+    obtenerDatosVehiculo,
     obtenerVehiculoYAseguradora,
     generarReporte,
     modificarVehiculoYAseguradora,
