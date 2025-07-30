@@ -347,6 +347,7 @@ router.get('/revista/tipos-imagen', async (req, res) => {
  */
 router.post('/revista', async (req, res) => {
     try {
+        // Desestructurar todos los campos del cuerpo de la solicitud
         const {
             idConcesion,
             idPropietario,
@@ -354,18 +355,13 @@ router.post('/revista', async (req, res) => {
             idVehiculo,
             placa,
             propietario,
+            // Campos booleanos (checkboxes) - el frontend envía 'Ver' al final
             placaDelanteraVer,
             placaTraseraVer,
             calcaVerificacionVer,
             calcaTenenciaVer,
             pinturaCarroceriaVer,
             estadoLlantasVer,
-            defensasVer,
-            vidriosVer,
-            limpiadoresVer,
-            espejosVer,
-            llantaRefaccionVer,
-            parabrisasMedallonVer,
             claxonVer,
             luzBajaVer,
             luzAltaVer,
@@ -382,11 +378,21 @@ router.post('/revista', async (req, res) => {
             interioresVer,
             botiquinVer,
             cinturonSeguridadVer,
-            observaciones,
-            aprobado,
             imagenCromaticaVer,
-            folio,
-            // Nuevos campos para puntuación
+            aprobado, // También es un booleano
+            
+            // Campos de selección (strings como "SI:BIEN", "NO", etc.)
+            defensasVer,
+            vidriosVer,
+            limpiadoresVer,
+            espejosVer,
+            llantaRefaccionVer,
+            parabrisasMedallonVer,
+
+            observaciones,
+            folio, // Asegúrate de que este campo se envíe desde el frontend si es necesario
+
+            // Nuevos campos para puntuación (strings que representan IDs)
             modeloId,
             tipoId,
             capacidadId,
@@ -399,75 +405,99 @@ router.post('/revista', async (req, res) => {
             clasificacionId
         } = req.body;
 
-        // Validar campos requeridos
+        // Log para depuración: ver qué se recibe del frontend
+        console.log("Datos recibidos en POST /revista:", req.body);
+
+        // Validar campos requeridos esenciales
         if (!idConcesion || !idPropietario || !idTramite || !idVehiculo || !placa || !propietario) {
-            return res.status(400).json({ error: 'Faltan campos requeridos' });
+            return res.status(400).json({ error: 'Faltan campos requeridos: idConcesion, idPropietario, idTramite, idVehiculo, placa, o propietario.' });
         }
 
-        // Obtener IdUser y nombre completo desde la sesión
-        const IdUser = req.session.userId || 0;
-        const Inspector = req.session.userName || 'Desconocido';
-
-        const result = await dbService.insertarRevista({
+        // --- CONVERSIÓN DE BOOLEANOS A 1 O 0 PARA LA BASE DE DATOS ---
+        // Esto es crucial para las columnas BIT NOT NULL en SQL Server
+        const dataToInsert = {
             idConcesion,
             idPropietario,
-            idTramite,
+            idTramite: parseInt(idTramite), // Asegura que idTramite sea un número
             idVehiculo,
             placa,
             propietario,
-            placaDelanteraVer,
-            placaTraseraVer,
-            calcaVerificacionVer,
-            calcaTenenciaVer,
-            pinturaCarroceriaVer,
-            estadoLlantasVer,
+            // Convertir booleanos a 1 o 0
+            placaDelanteraVer: placaDelanteraVer ? 1 : 0,
+            placaTraseraVer: placaTraseraVer ? 1 : 0,
+            calcaVerificacionVer: calcaVerificacionVer ? 1 : 0,
+            calcaTenenciaVer: calcaTenenciaVer ? 1 : 0,
+            pinturaCarroceriaVer: pinturaCarroceriaVer ? 1 : 0,
+            estadoLlantasVer: estadoLlantasVer ? 1 : 0,
+            claxonVer: claxonVer ? 1 : 0,
+            luzBajaVer: luzBajaVer ? 1 : 0,
+            luzAltaVer: luzAltaVer ? 1 : 0,
+            cuartosVer: cuartosVer ? 1 : 0,
+            direccionalesVer: direccionalesVer ? 1 : 0,
+            intermitentesVer: intermitentesVer ? 1 : 0,
+            stopVer: stopVer ? 1 : 0,
+            timbreVer: timbreVer ? 1 : 0,
+            estinguidorVer: estinguidorVer ? 1 : 0,
+            herramientasVer: herramientasVer ? 1 : 0,
+            sistemaFrenadoVer: sistemaFrenadoVer ? 1 : 0,
+            sistemaDireccionVer: sistemaDireccionVer ? 1 : 0,
+            sistemaSuspensionVer: sistemaSuspensionVer ? 1 : 0,
+            interioresVer: interioresVer ? 1 : 0,
+            botiquinVer: botiquinVer ? 1 : 0,
+            cinturonSeguridadVer: cinturonSeguridadVer ? 1 : 0,
+            imagenCromaticaVer: imagenCromaticaVer ? 1 : 0,
+            aprobado: aprobado ? 1 : 0, // Importante convertir 'aprobado'
+            observaciones: observaciones || '', // Asegurarse de que no sea undefined/null
+            folio: folio || null, // Incluir folio, si es opcional, puede ser null
+            
+            // Los campos de selección ya vienen como string ("SI:BIEN", "NO", etc.)
             defensasVer,
             vidriosVer,
             limpiadoresVer,
             espejosVer,
             llantaRefaccionVer,
             parabrisasMedallonVer,
-            claxonVer,
-            luzBajaVer,
-            luzAltaVer,
-            cuartosVer,
-            direccionalesVer,
-            intermitentesVer,
-            stopVer,
-            timbreVer,
-            estinguidorVer,
-            herramientasVer,
-            sistemaFrenadoVer,
-            sistemaDireccionVer,
-            sistemaSuspensionVer,
-            interioresVer,
-            botiquinVer,
-            cinturonSeguridadVer,
-            observaciones,
-            aprobado,
-            imagenCromaticaVer,
-            folio,
-            IdUser,
-            Inspector,
-            // Nuevos parámetros para puntuación
-            modeloId,
-            tipoId,
-            capacidadId,
-            tipoBolsa,
-            tieneAire,
-            frenoId,
-            cinturonId,
-            tapiceriaId,
-            puntuacion,
-            clasificacionId
-        });
+            
+            // Nuevos campos para puntuación (strings que representan IDs)
+            modeloId: modeloId ? parseInt(modeloId) : null, // Convertir a número si es necesario
+            tipoId: tipoId ? parseInt(tipoId) : null,
+            capacidadId: capacidadId ? parseInt(capacidadId) : null,
+            tipoBolsa: tipoBolsa ? parseInt(tipoBolsa) : null,
+            tieneAire: tieneAire ? parseInt(tieneAire) : null,
+            frenoId: frenoId ? parseInt(frenoId) : null,
+            cinturonId: cinturonId ? parseInt(cinturonId) : null,
+            tapiceriaId: tapiceriaId ? parseInt(tapiceriaId) : null,
+            puntuacion: puntuacion ? parseInt(puntuacion) : null, // Asegurar que puntuacion sea un número
+            clasificacionId: clasificacionId ? parseInt(clasificacionId) : null // Asegurar que clasificacionId sea un número
+        };
+
+        // Obtener IdUser y nombre completo desde la sesión
+        // Asegúrate de que req.session esté configurado y disponible.
+        const IdUser = req.session.userId || 0; // Valor por defecto si no hay sesión
+        const Inspector = req.session.userName || 'Desconocido'; // Valor por defecto
+
+        // Añadir IdUser e Inspector a los datos que se enviarán al servicio
+        Object.assign(dataToInsert, { IdUser, Inspector });
+
+        // Aquí se imprime para depuración antes de enviar a dbService
+        console.log("Datos que se enviarán a dbService.insertarRevista:", dataToInsert);
+
+        const result = await dbService.insertarRevista(dataToInsert);
 
         res.json({ success: true, idRV: result.idRV });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error al guardar la inspección' });
+        console.error("Error en POST /api/revista:", err);
+        // Puedes refinar el mensaje de error para el cliente
+        if (err.message && err.message.includes("column does not allow nulls")) {
+            res.status(500).json({ error: 'Error al guardar la inspección: Hay campos requeridos que no pueden ser nulos. Por favor, asegúrate de que todos los datos estén completos.' });
+        } else if (err.message && err.message.includes("violates the foreign key constraint")) {
+            res.status(400).json({ error: 'Error de datos: Uno o más IDs de referencia (concesión, propietario, vehículo, trámite, etc.) no son válidos.' });
+        } else {
+            res.status(500).json({ error: 'Error interno al guardar la inspección. Inténtalo de nuevo más tarde.' });
+        }
     }
 });
+
 /**
  * Ruta para subir una imagen asociada a una inspección vehicular.
  * @name POST /revista/imagen
