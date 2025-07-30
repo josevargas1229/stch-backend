@@ -355,8 +355,8 @@ async function obtenerReporteInspecciones(fechaInicio, fechaFin, page, pageSize,
  */
 async function generarReporte(req, res) {
     const { fechaInicio, fechaFin, page = '1', format, allPages = 'false' } = req.query;
-    console.log("recine",req.query)
-    // console.log('Parámetros recibidos:', { fechaInicio, fechaFin, page, format, allPages });
+
+    console.log('Parámetros recibidos:', { fechaInicio, fechaFin, page, format, allPages });
 
     // Permitir fechas en formato DD/MM/YYYY o YYYY-MM-DD
     const isDDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/.test(fechaInicio) && /^\d{2}\/\d{2}\/\d{4}$/.test(fechaFin);
@@ -414,6 +414,7 @@ async function generarReporte(req, res) {
             pageSize,
             exportAllPages && format !== 'json'
         );
+        console.log("la res",result)
     } catch (err) {
         console.error('Error en obtenerReporteInspecciones:', err);
         return res.status(500).json({ error: 'Error interno al obtener el reporte' });
@@ -557,7 +558,7 @@ async function generarReporte(req, res) {
         // Rango de fechas
         doc.setFontSize(12);
         doc.text(`Fechas: ${fechaInicio} - ${fechaFin}`, textX, headerY + 15); // Debajo del título, en la misma "línea"
-
+        console.log(result.data)
         const tableData = result.data.map(item => [
             item.IdRevistaVehicular,
             item.FechaInspeccion,
