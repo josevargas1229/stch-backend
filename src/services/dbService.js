@@ -355,7 +355,7 @@ async function obtenerReporteInspecciones(fechaInicio, fechaFin, page, pageSize,
  */
 async function generarReporte(req, res) {
     const { fechaInicio, fechaFin, page = '1', format, allPages = 'false' } = req.query;
-    console.log("recine",req.query)
+    //console.log("recine",req.query)
     // console.log('Parámetros recibidos:', { fechaInicio, fechaFin, page, format, allPages });
 
     // Permitir fechas en formato DD/MM/YYYY o YYYY-MM-DD
@@ -402,7 +402,7 @@ async function generarReporte(req, res) {
     const fechaInicioConverted = toMMDDYYYY(fechaInicio);
     const fechaFinConverted = toMMDDYYYY(fechaFin);
 
-    console.log('Fechas convertidas:', { fechaInicioConverted, fechaFinConverted });
+    //console.log('Fechas convertidas:', { fechaInicioConverted, fechaFinConverted });
 
     const pageSize = 20;
     let result;
@@ -527,7 +527,7 @@ async function generarReporte(req, res) {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename=Reporte_Inspecciones.xlsx');
         await workbook.xlsx.write(res);
-        console.log('Excel generado y enviado');
+        //console.log('Excel generado y enviado');
         return res.end();
     }
 
@@ -597,12 +597,12 @@ async function generarReporte(req, res) {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename=Reporte_Inspecciones.pdf');
         res.send(Buffer.from(doc.output('arraybuffer')));
-        console.log('PDF generado y enviado');
+        //console.log('PDF generado y enviado');
         return;
     }
 
     // Respuesta JSON por defecto
-    console.log('Respuesta JSON enviada');
+    //console.log('Respuesta JSON enviada');
     res.json(result);
 }
 /**
@@ -1479,7 +1479,8 @@ async function buscarRevistasVehiculares(noConcesion, placa, estatus, fechaInici
 
         // Ejecutar el procedimiento
         const result = await request.execute(procedure);
-
+        const tiposTramiteResult = await obtenerTiposTramite();
+        const tramiteMap = new Map(tiposTramiteResult.data.map(item => [item.IdTramite, item.Tramite]));
         // Filtrar por placa si se proporcionó y se usó RV_ObtenerListaRevistaPorConcesion
         let filteredData = result.recordset;
         if (noConcesion && placa) {
@@ -1488,7 +1489,8 @@ async function buscarRevistasVehiculares(noConcesion, placa, estatus, fechaInici
         const enrichedData = filteredData.map(item => {
             return {
                 ...item,
-                Estatus: revistaEstatusMap.get(item.IdEstatus) || 'Desconocido'
+                Estatus: revistaEstatusMap.get(item.IdEstatus) || 'Desconocido',
+                Tramite: tramiteMap.get(item.IdTramite) || 'Desconocido'
             };
         });
 

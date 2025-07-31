@@ -406,7 +406,7 @@ router.post('/revista', async (req, res) => {
         } = req.body;
 
         // Log para depuración: ver qué se recibe del frontend
-        console.log("Datos recibidos en POST /revista:", req.body);
+        //console.log("Datos recibidos en POST /revista:", req.body);
 
         // Validar campos requeridos esenciales
         if (!idConcesion || !idPropietario || !idTramite || !idVehiculo || !placa || !propietario) {
@@ -480,7 +480,7 @@ router.post('/revista', async (req, res) => {
         Object.assign(dataToInsert, { IdUser, Inspector });
 
         // Aquí se imprime para depuración antes de enviar a dbService
-        console.log("Datos que se enviarán a dbService.insertarRevista:", dataToInsert);
+        //console.log("Datos que se enviarán a dbService.insertarRevista:", dataToInsert);
 
         const result = await dbService.insertarRevista(dataToInsert);
 
@@ -982,13 +982,13 @@ router.get('/vehiculo/datos/puntuacion', async (req, res) => {
 
 router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
     try {
-        console.log('🔵 Iniciando modificación de vehículo');
+        //console.log('🔵 Iniciando modificación de vehículo');
         const { idConcesion, idVehiculo } = req.params;
         const { vehiculoData, seguroData } = req.body;
 
-        console.log('📌 Parámetros recibidos:', { idConcesion, idVehiculo });
-        console.log('🚗 Datos del vehículo recibidos:', JSON.stringify(vehiculoData, null, 2));
-        console.log('🛡️ Datos del seguro recibidos:', JSON.stringify(seguroData, null, 2));
+        //console.log('📌 Parámetros recibidos:', { idConcesion, idVehiculo });
+        //console.log('🚗 Datos del vehículo recibidos:', JSON.stringify(vehiculoData, null, 2));
+        //console.log('🛡️ Datos del seguro recibidos:', JSON.stringify(seguroData, null, 2));
 
         // Validar IDs
         const idConcesionInt = parseInt(idConcesion);
@@ -998,7 +998,7 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
             return res.status(400).json({ error: 'ID de concesión o vehículo inválido' });
         }
 
-        console.log('🔍 Obteniendo datos de usuario...');
+        //console.log('🔍 Obteniendo datos de usuario...');
         // Obtener datos de usuario, perfil, smartcard y delegación
         const poolUsers = await require('../config/dbUsers');
         const userRequest = poolUsers.request();
@@ -1019,9 +1019,9 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
         // Agregar datos de usuario a seguroData
         seguroData.idConcesion = idConcesionInt;
 
-        console.log('🛡️ Datos del seguro actualizados:', JSON.stringify(seguroData, null, 2));
+        //console.log('🛡️ Datos del seguro actualizados:', JSON.stringify(seguroData, null, 2));
 
-        console.log('🔄 Ejecutando modificación en la base de datos...');
+        //console.log('🔄 Ejecutando modificación en la base de datos...');
         // Ejecutar la modificación
         const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData, userData);
         res.json({
@@ -1110,7 +1110,7 @@ router.get('/revista/buscar', async (req, res) => {
             return res.status(404).json({ message: 'No se encontraron revistas vehiculares', returnValue: result.returnValue });
         }
         // Mostrar la respuesta en consola
-        console.log('Respuesta de /revista/buscar:', JSON.stringify(result, null, 2));
+        //console.log('Respuesta de /revista/buscar:', JSON.stringify(result, null, 2));
         res.json(result);
     } catch (err) {
         console.error(err);
