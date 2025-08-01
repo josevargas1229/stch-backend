@@ -178,15 +178,30 @@ router.get('/concesion/titular', async (req, res) => {
  * @function
  * @param {Object} req.params - Objeto con parámetros de ruta.
  * @param {number} req.params.idConcesionario - ID del concesionario.
- * @returns {Object} Respuesta JSON con `data` (concesiones) y `returnValue`, o error 404/500.
+ * @returns {Object} Respuesta JSON con `data` (concesiones o datos del concesionario) y `returnValue`, o error 404/500.
  */
 router.get('/concesion/concesionario/:idConcesionario', async (req, res) => {
     try {
         const result = await dbService.obtenerConcesionesPorConcesionario(req.params.idConcesionario);
-        if (!result.data || result.data.length === 0) {
-            return res.status(404).json({ message: 'No se encontraron concesiones para este concesionario', returnValue: result.returnValue });
+
+        // Caso 1: Concesionario no encontrado (status: 404)
+        if (result.status === 404) {
+            return res.status(404).json({ message: result.message });
         }
-        res.json(result);
+
+        // Caso 2: Concesionario existe pero no tiene concesiones (status: 204)
+        if (result.status === 204) {
+            return res.status(200).json({
+                concesion: null,
+                concesionario: result.concesionario,
+                beneficiarios: result.beneficiarios,
+                direcciones: result.direcciones,
+                referencias: result.referencias
+            });
+        }
+
+        // Caso 3: Hay concesiones asociadas
+        return res.status(200).json(result);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Error al obtener concesiones por concesionario' });

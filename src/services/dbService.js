@@ -194,32 +194,77 @@ async function obtenerConcesionariosPorNombre(nombre, paterno, materno, page, pa
 }
 
 /**
- * Obtiene las concesiones asociadas a un concesionario.
+ * Obtiene las concesiones asociadas a un concesionario o información del concesionario si no tiene concesiones.
  * @async
  * @function obtenerConcesionesPorConcesionario
  * @param {number} idConcesionario - El ID del concesionario.
- * @returns {Promise<Object>} Objeto con `data` (lista de concesiones) y `returnValue` (código de retorno).
+ * @returns {Promise<Object>} Objeto con `data` (lista de concesiones o datos del concesionario) y `returnValue` (código de retorno).
  * @throws {Error} Si falla la ejecución del procedimiento.
  */
 async function obtenerConcesionesPorConcesionario(idConcesionario) {
     try {
+        // Validar que idConcesionario sea un número válido
+        if (isNaN(idConcesionario) || !Number.isInteger(Number(idConcesionario))) {
+            throw new Error('El idConcesionario debe ser un número entero válido');
+        }
+
         const pool = await poolPromise;
         const request = pool.request();
         request.input('idConcesionario', sql.Int, idConcesionario);
         const result = await request.execute('ConcesionObtenerPorConcesionario');
-        const data = result.recordset.map(item => ({
-            idConcesion: item.IdConcesion,
-            // documento: 'Concesión',
-            folio: item.Folio,
-            seriePlaca: item.SeriePlacaActual || 'SIN PLACA',
-            numeroExpediente: item.NumeroExpediente
-        }));
+
+        // Caso 1: Hay concesiones asociadas
+        if (result.recordset.length > 0) {
+            const data = result.recordset.map(item => ({
+                idConcesion: item.IdConcesion,
+                folio: item.Folio,
+                seriePlaca: item.SeriePlacaActual || 'SIN PLACA',
+                numeroExpediente: item.NumeroExpediente
+            }));
+            return {
+                data: data,
+                returnValue: result.returnValue
+            };
+        }
+
+        // Caso 2: No hay concesiones, verificar si el concesionario existe
+        const concesionario = await obtenerConcesionarioPorId(idConcesionario);
+        if (!concesionario.data) {
+            return {
+                status: 404,
+                message: 'Concesionario no encontrado'
+            };
+        }
+
+        // Obtener datos relacionados del concesionario
+        const [beneficiarios, direcciones, referencias] = await Promise.all([
+            obtenerBeneficiariosPorConcesionario(idConcesionario),
+            obtenerDireccionesPorConcesionario(idConcesionario),
+            obtenerReferenciasPorConcesionario(idConcesionario)
+        ]);
+
+        // Retornar datos del concesionario con código 204
         return {
-            data: data,
-            returnValue: result.returnValue
+            status: 204,
+            concesionario: {
+                data: concesionario.data,
+                returnValue: concesionario.returnValue
+            },
+            beneficiarios: {
+                data: beneficiarios.data,
+                returnValue: beneficiarios.returnValue
+            },
+            direcciones: {
+                data: direcciones.data,
+                returnValue: direcciones.returnValue
+            },
+            referencias: {
+                data: referencias.data,
+                returnValue: referencias.returnValue
+            }
         };
     } catch (err) {
-        throw new Error(`Error al ejecutar ConcesionObtenerPorConcesionario: ${err.message}`);
+        throw new Error(`Error al ejecutar obtenerConcesionesPorConcesionario: ${err.message}`);
     }
 }
 
