@@ -178,20 +178,36 @@ router.get('/concesion/titular', async (req, res) => {
  * @function
  * @param {Object} req.params - Objeto con parámetros de ruta.
  * @param {number} req.params.idConcesionario - ID del concesionario.
- * @returns {Object} Respuesta JSON con `data` (concesiones) y `returnValue`, o error 404/500.
+ * @returns {Object} Respuesta JSON con `data` (concesiones o datos del concesionario) y `returnValue`, o error 404/500.
  */
+
 router.get('/concesion/concesionario/:idConcesionario', async (req, res) => {
     try {
         const result = await dbService.obtenerConcesionesPorConcesionario(req.params.idConcesionario);
-        if (!result.data || result.data.length === 0) {
-            return res.status(404).json({ message: 'No se encontraron concesiones para este concesionario', returnValue: result.returnValue });
+        // Caso 1: Concesionario no encontrado (status: 404)
+        if (result.status === 404) {
+            return res.status(404).json({ message: result.message });
         }
-        res.json(result);
+        // Caso 2: Concesionario existe pero no tiene concesiones (status: 204)
+        if (result.status === 204) {
+            return res.status(200).json({
+                concesion: null,
+                concesionario: result.concesionario,
+                beneficiarios: result.beneficiarios,
+                direcciones: result.direcciones,
+                referencias: result.referencias
+            });
+        }
+        // Caso 3: Hay concesiones asociadas
+        return res.status(200).json(result);
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Error al obtener concesiones por concesionario' });
     }
 });
+
+
 
 /**
  * Ruta para obtener los datos del vehículo y la aseguradora por ID de concesión e ID de vehículo
@@ -1063,7 +1079,7 @@ router.post('/revista/imprimir', async (req, res) => {
         res.status(500).json({ error: 'Error interno al registrar la impresión' });
     }
 });
-/**
+/*
  * Ruta para buscar revistas vehiculares según criterios específicos.
  * @name GET /revista/buscar
  * @function
@@ -1071,8 +1087,81 @@ router.post('/revista/imprimir', async (req, res) => {
  * @param {number} [req.query.noConcesion] - Número de concesión para filtrar revistas (opcional).
  * @param {string} [req.query.placa] - Placa del vehículo para filtrar revistas (opcional).
  * @param {number} [req.query.estatus] - ID del estatus de la revista (opcional).
- * @param {string} [req.query.fechaInicio] - Fecha de inicio en formato DD/MM/YYYY (opcional).
- * @param {string} [req.query.fechaFin] - Fecha de fin en formato DD/MM/YYYY (opcional).
+ * @param {string} [req.query.fechaInicio] - Fecha de inicio en formato YYYY-MM-DD (opcional).
+ * @param {string} [req.query.fechaFin] - Fecha de fin en formato YYYY-MM-DD (opcional).
+ * @param {number} [req.query.page=1] - Número de página para paginación.
+ * @param {number} [req.query.pageSize=10] - Cantidad de registros por página. Si es 0, se devuelven todos los registros sin paginación.
+ * @returns {Object} Respuesta JSON con los resultados de la búsqueda:
+ * - `data`: Array de revistas vehiculares con sus detalles y el campo `Estatus` enriquecido.
+ * - `totalRecords`: Número total de registros devueltos.
+ * - `page`: Página actual.
+ * - `pageSize`: Tamaño de la página.
+ * - `returnValue`: Valor de retorno (0 para éxito).
+ * @throws {Object} Error con código de estado:
+ * - 400: Si las fechas no están en formato YYYY-MM-DD.
+ * - 404: Si no se encuentran revistas vehiculares.
+ * - 500: Si ocurre un error interno al buscar revistas.
+ */
+router.get('/revista/buscar', async (req, res) => {
+    try {
+        const { noConcesion, placa, estatus, fechaInicio, fechaFin } = req.query;
+        let { page = 1, pageSize = 10 } = req.query;
+
+        // Validar y convertir los parámetros de paginación
+        page = parseInt(page, 10);
+        pageSize = parseInt(pageSize, 10);
+
+        // Si pageSize es 0, no se aplica la paginación. Se devuelven todos los registros.
+        if (pageSize === 0) {
+            page = null;
+            pageSize = null;
+        }
+
+        // Validar fechas para el formato YYYY-MM-DD
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if ((fechaInicio && !dateRegex.test(fechaInicio)) || (fechaFin && !dateRegex.test(fechaFin))) {
+            return res.status(400).json({ error: 'Las fechas deben estar en formato YYYY-MM-DD' });
+        }
+
+        // Función para convertir de YYYY-MM-DD a MM/DD/YYYY
+        const convertToMMDDYYYY = (dateStr) => {
+            if (!dateStr) return null;
+            const [year, month, day] = dateStr.split('-');
+            return `${month}/${day}/${year}`;
+        };
+
+        const result = await dbService.buscarRevistasVehiculares(
+            noConcesion || null,
+            placa || null,
+            estatus || null,
+            convertToMMDDYYYY(fechaInicio),
+            convertToMMDDYYYY(fechaFin),
+            page,
+            pageSize
+        );
+
+        if (!result.data || result.data.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron revistas vehiculares', returnValue: result.returnValue });
+        }
+        
+        // Mostrar la respuesta en consola
+        console.log('Respuesta de /revista/buscar:', JSON.stringify(result, null, 2));
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error al buscar revistas vehiculares' });
+    }
+});
+/*
+ * Ruta para buscar revistas vehiculares según criterios específicos.
+ * @name GET /revista/buscar
+ * @function
+ * @param {Object} req.query - Parámetros de consulta:
+ * @param {number} [req.query.noConcesion] - Número de concesión para filtrar revistas (opcional).
+ * @param {string} [req.query.placa] - Placa del vehículo para filtrar revistas (opcional).
+ * @param {number} [req.query.estatus] - ID del estatus de la revista (opcional).
+ * @param {string} [req.query.fechaInicio] - Fecha de inicio en formato YYYY-MM-DD (opcional).
+ * @param {string} [req.query.fechaFin] - Fecha de fin en formato YYYY-MM-DD (opcional).
  * @param {number} [req.query.page=1] - Número de página para paginación.
  * @param {number} [req.query.pageSize=10] - Cantidad de registros por página.
  * @returns {Object} Respuesta JSON con los resultados de la búsqueda:
@@ -1082,41 +1171,48 @@ router.post('/revista/imprimir', async (req, res) => {
  * - `pageSize`: Tamaño de la página.
  * - `returnValue`: Valor de retorno (0 para éxito).
  * @throws {Object} Error con código de estado:
- * - 400: Si las fechas no están en formato DD/MM/YYYY.
+ * - 400: Si las fechas no están en formato YYYY-MM-DD.
  * - 404: Si no se encuentran revistas vehiculares.
  * - 500: Si ocurre un error interno al buscar revistas.
  */
-router.get('/revista/buscar', async (req, res) => {
-    try {
-        const { noConcesion, placa, estatus, fechaInicio, fechaFin, page = 1, pageSize = 10 } = req.query;
+// router.get('/revista/buscar', async (req, res) => {
+//     try {
+//         const { noConcesion, placa, estatus, fechaInicio, fechaFin, page = 1, pageSize = 10 } = req.query;
 
-        // Validar fechas
-        const dateRegex = /^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
-        if ((fechaInicio && !dateRegex.test(fechaInicio)) || (fechaFin && !dateRegex.test(fechaFin))) {
-            return res.status(400).json({ error: 'Las fechas deben estar en formato DD/MM/YYYY' });
-        }
+//         // Validar fechas para el formato YYYY-MM-DD
+//         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+//         if ((fechaInicio && !dateRegex.test(fechaInicio)) || (fechaFin && !dateRegex.test(fechaFin))) {
+//             return res.status(400).json({ error: 'Las fechas deben estar en formato YYYY-MM-DD' });
+//         }
 
-        const result = await dbService.buscarRevistasVehiculares(
-            noConcesion || null,
-            placa || null,
-            estatus || null,
-            fechaInicio ? `${fechaInicio.split('/')[1]}/${fechaInicio.split('/')[0]}/${fechaInicio.split('/')[2]}` : null,
-            fechaFin ? `${fechaFin.split('/')[1]}/${fechaFin.split('/')[0]}/${fechaFin.split('/')[2]}` : null,
-            parseInt(page),
-            parseInt(pageSize)
-        );
+//         // Función para convertir de YYYY-MM-DD a MM/DD/YYYY
+//         const convertToMMDDYYYY = (dateStr) => {
+//             if (!dateStr) return null;
+//             const [year, month, day] = dateStr.split('-');
+//             return `${month}/${day}/${year}`;
+//         };
 
-        if (!result.data || result.data.length === 0) {
-            return res.status(404).json({ message: 'No se encontraron revistas vehiculares', returnValue: result.returnValue });
-        }
-        // Mostrar la respuesta en consola
-        console.log('Respuesta de /revista/buscar:', JSON.stringify(result, null, 2));
-        res.json(result);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error al buscar revistas vehiculares' });
-    }
-});
+//         const result = await dbService.buscarRevistasVehiculares(
+//             noConcesion || null,
+//             placa || null,
+//             estatus || null,
+//             convertToMMDDYYYY(fechaInicio),
+//             convertToMMDDYYYY(fechaFin),
+//             parseInt(page),
+//             parseInt(pageSize)
+//         );
+
+//         if (!result.data || result.data.length === 0) {
+//             return res.status(404).json({ message: 'No se encontraron revistas vehiculares', returnValue: result.returnValue });
+//         }
+//         // Mostrar la respuesta en consola
+//         console.log('Respuesta de /revista/buscar:', JSON.stringify(result, null, 2));
+//         res.json(result);
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ error: 'Error al buscar revistas vehiculares' });
+//     }
+// });
 /**        
  * Ruta para obtener los detalles de una inspección vehicular por su ID.
  * @name GET /revista/:idRV
