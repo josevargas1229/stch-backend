@@ -395,7 +395,7 @@ router.post('/revista', async (req, res) => {
             cinturonSeguridadVer,
             imagenCromaticaVer,
             aprobado, // También es un booleano
-            
+
             // Campos de selección (strings como "SI:BIEN", "NO", etc.)
             defensasVer,
             vidriosVer,
@@ -464,7 +464,7 @@ router.post('/revista', async (req, res) => {
             aprobado: aprobado ? 1 : 0, // Importante convertir 'aprobado'
             observaciones: observaciones || '', // Asegurarse de que no sea undefined/null
             folio: folio || null, // Incluir folio, si es opcional, puede ser null
-            
+
             // Los campos de selección ya vienen como string ("SI:BIEN", "NO", etc.)
             defensasVer,
             vidriosVer,
@@ -472,7 +472,7 @@ router.post('/revista', async (req, res) => {
             espejosVer,
             llantaRefaccionVer,
             parabrisasMedallonVer,
-            
+
             // Nuevos campos para puntuación (strings que representan IDs)
             modeloId: modeloId ? parseInt(modeloId) : null, // Convertir a número si es necesario
             tipoId: tipoId ? parseInt(tipoId) : null,
@@ -965,7 +965,7 @@ router.get('/vehiculo/datos/puntuacion', async (req, res) => {
 //         } else {
 //             vehiculoData.Cilindros = parseInt(vehiculoData.Cilindros); // Asegurarse de que sea un número si no es 0
 //         }
-        
+
 //         // Limpiar otros campos de vehiculoData que son opcionales y vienen vacíos o nulos
 //         camposOpcionalesVehiculo.forEach(campo => {
 //             // Asegurarse de no sobrescribir la lógica de Cilindros que ya se manejó
@@ -997,17 +997,18 @@ router.get('/vehiculo/datos/puntuacion', async (req, res) => {
 
 router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
     try {
-        //console.log('🔵 Iniciando modificación de vehículo');
+        // Corrected line: change the variable names to match the JSON keys
+        const { vehiculo, seguro } = req.body;
         const { idConcesion, idVehiculo } = req.params;
-        const { vehiculoData, seguroData } = req.body;
-
-        //console.log('📌 Parámetros recibidos:', { idConcesion, idVehiculo });
-        //console.log('🚗 Datos del vehículo recibidos:', JSON.stringify(vehiculoData, null, 2));
-        //console.log('🛡️ Datos del seguro recibidos:', JSON.stringify(seguroData, null, 2));
+        // console.log('📌 Parámetros recibidos:', { idConcesion, idVehiculo });
+        //console.log('🚗 Datos del vehículo recibidos:', JSON.stringify(vehiculo, null, 2));
+        //console.log('🛡️ Datos del seguro recibidos:', JSON.stringify(seguro, null, 2));
 
         // Validar IDs
-        const idConcesionInt = parseInt(idConcesion);
-        const idVehiculoInt = parseInt(idVehiculo);
+        const idConcesionInt = parseInt(req.params.idConcesion);
+        const idVehiculoInt = parseInt(req.params.idVehiculo);
+        // imprimir los IDs para depuración
+        console.log('🔍 Validando IDs:', { idConcesionInt, idVehiculoInt });
         if (isNaN(idConcesionInt) || isNaN(idVehiculoInt)) {
             console.error('❌ IDs inválidos:', { idConcesion, idVehiculo });
             return res.status(400).json({ error: 'ID de concesión o vehículo inválido' });
@@ -1032,13 +1033,13 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
         `);
         const userData = userResult.recordset[0] || {};
         // Agregar datos de usuario a seguroData
-        seguroData.idConcesion = idConcesionInt;
+        seguro.idConcesion = idConcesionInt;
 
-        //console.log('🛡️ Datos del seguro actualizados:', JSON.stringify(seguroData, null, 2));
+        //console.log('🛡️ Datos del seguro actualizados:', JSON.stringify(seguro, null, 2));
 
         //console.log('🔄 Ejecutando modificación en la base de datos...');
         // Ejecutar la modificación
-        const result = await dbService.modificarVehiculoYAseguradora(vehiculoData, seguroData, userData);
+        const result = await dbService.modificarVehiculoYAseguradora(vehiculo, seguro, userData);
         res.json({
             idVehiculo: result.idVehiculo,
             returnValue: result.returnValue,
@@ -1046,13 +1047,12 @@ router.put('/concesion/:idConcesion/vehiculo/:idVehiculo', async (req, res) => {
         });
     } catch (err) {
         console.error('❌ Error en el endpoint:', err);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Error al modificar vehículo y aseguradora',
-            details: err.message 
+            details: err.message
         });
     }
 });
-
 
 /**
  * Ruta para registrar la impresión de una revista vehicular usando el procedimiento RV_ImprimirRevista.
@@ -1142,7 +1142,7 @@ router.get('/revista/buscar', async (req, res) => {
         if (!result.data || result.data.length === 0) {
             return res.status(404).json({ message: 'No se encontraron revistas vehiculares', returnValue: result.returnValue });
         }
-        
+
         // Mostrar la respuesta en consola
         //console.log('Respuesta de /revista/buscar:', JSON.stringify(result, null, 2));
         res.json(result);
